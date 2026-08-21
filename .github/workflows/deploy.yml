@@ -28,8 +28,9 @@ jobs:
       - name: Upload site artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Static site, no build step: publish the repository root as-is.
-          path: .
+          # Static client only (no build step). Online play needs the Node
+          # server (server/) and is not available on this deployment.
+          path: client
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

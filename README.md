@@ -1,42 +1,48 @@
 # Gambit ♞
 
-Chess in the browser: play against Stockfish or a friend on the same device. Pure static frontend — no backend, no build step, no tracking.
+Chess in the browser: play against Stockfish, a friend on the same device, or **online with a 6-digit PIN** — no accounts, no tracking.
 
-**▶ Play now: https://danielededo.github.io/gambit/**
-
-![Gambit — mid-game against the AI](assets/screenshots/gameplay.png)
+![Gambit — mid-game against the AI](client/assets/screenshots/gameplay.png)
 
 ## Features
 
-- **Two modes** — Human vs AI (you play White) or Human vs Human on the same device
+- **Three modes** — Human vs AI, Human vs Human (same device), Online via PIN
 - **Difficulty 1-8** — Stockfish 18 running locally in your browser, from beginner to full strength
 - **Full rules** — castling, en passant, promotion (with piece picker), check/checkmate/stalemate/draws, powered by [chess.js](https://github.com/jhlywa/chess.js)
+- **Fair online play** — the server validates every move; reconnect and resume after a page reload
 - **Helpful board** — legal-move highlighting, last-move marker, move history in algebraic notation
 - **Your look** — 4 themes × 4 piece sets, remembered across visits
 
 | Light · Standard | Dark · Medieval | Blue · Minimal | Sepia · Unicode |
 |:---:|:---:|:---:|:---:|
-| ![Light theme, standard pieces](assets/screenshots/light-standard.png) | ![Dark theme, medieval pieces](assets/screenshots/dark-medieval.png) | ![Blue theme, minimal pieces](assets/screenshots/blue-minimal.png) | ![Sepia theme, unicode pieces](assets/screenshots/sepia-unicode.png) |
+| ![Light theme, standard pieces](client/assets/screenshots/light-standard.png) | ![Dark theme, medieval pieces](client/assets/screenshots/dark-medieval.png) | ![Blue theme, minimal pieces](client/assets/screenshots/blue-minimal.png) | ![Sepia theme, unicode pieces](client/assets/screenshots/sepia-unicode.png) |
 
 ## How to play
 
 Click a piece, then one of its highlighted destinations. Pick mode, difficulty, theme, and pieces from the header — **New game** restarts anytime.
 
+**Online:** choose *Online (PIN)*, press *Create game*, and share the 6-digit PIN; your friend joins with it and plays Black (board flipped on their side). Closing the tab by accident? Reload and the game resumes. The server hosts a limited number of parallel games.
+
+![Online game — waiting for the opponent with the PIN on screen](client/assets/screenshots/online-pin.png)
+
 ## Run locally
 
 ```bash
-python -m http.server   # or: npx serve
+npm install && npm start   # full app (local + online play) on http://localhost:8080
 ```
 
-Open http://localhost:8000. No install, no build — but an HTTP server is required (ES modules and the Stockfish worker don't run from `file://`).
+Static-only alternative (local modes, no online): `python -m http.server -d client` — an HTTP server is required either way, ES modules and the Stockfish worker don't run from `file://`.
 
-## Deployment
+## Architecture & deployment
 
-GitHub Pages (Settings → Pages → Source: *GitHub Actions*): every push to `main` publishes the repository root via [`deploy.yml`](.github/workflows/deploy.yml).
+- `client/` — static frontend (vanilla JS, no build step). Runs anywhere; Stockfish plays in the visitor's browser.
+- `server/` — Node.js WebSocket server for online games: it serves `client/` and is the authority on the rules (every move re-validated server-side). In-memory for now, `MAX_ACTIVE_GAMES` caps parallel games (default 20).
+
+Full deployment needs a Node host (`npm start`, honors `PORT`). The GitHub Pages workflow ([`deploy.yml`](.github/workflows/deploy.yml)) publishes the static client only — local modes work there, online play does not.
 
 ## Roadmap
 
-Multiplayer with PIN · replay & PGN import · engine analysis · timers · ELO · animations & sounds · play as Black.
+Persistence for online games (SQLite) · accounts & ELO · replay & PGN import · engine analysis · timers · animations & sounds · play as Black vs AI.
 
 ## Contributing & license
 

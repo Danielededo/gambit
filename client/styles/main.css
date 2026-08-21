@@ -5,6 +5,11 @@
   box-sizing: border-box;
 }
 
+/* Author display rules (e.g. flex) must not defeat the hidden attribute. */
+[hidden] {
+  display: none !important;
+}
+
 body {
   margin: 0;
   font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
@@ -219,6 +224,53 @@ body {
 
 .promotion-choice .piece {
   pointer-events: none;
+}
+
+/* Online play */
+
+.online-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+
+.join-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.join-row input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.5rem 0.75rem;
+  font-size: 1.1rem;
+  letter-spacing: 0.2em;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-color);
+  color: var(--text-color);
+}
+
+.online-hint {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--muted-text);
+}
+
+.pin-banner {
+  margin-bottom: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  border: 2px dashed var(--accent-color);
+  border-radius: 8px;
+  text-align: center;
+  font-size: 1.1rem;
+}
+
+.pin-banner strong {
+  font-size: 1.5rem;
+  letter-spacing: 0.25em;
+  margin-left: 0.4rem;
 }
 
 /* Sidebar */
