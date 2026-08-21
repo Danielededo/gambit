@@ -1,0 +1,25 @@
+/* Light theme (default). Every theme must define this full set of variables. */
+
+:root {
+  --bg-color: #f5f5f4;
+  --text-color: #1c1917;
+  --muted-text: #78716c;
+
+  --panel-bg: #ffffff;
+  --border-color: #d6d3d1;
+  --status-bg: #f0efed;
+
+  --accent-color: #2563eb;
+  --accent-text: #ffffff;
+
+  --board-border: #44403c;
+  --square-light: #f0d9b5;
+  --square-dark: #b58863;
+
+  --highlight-selected: #2563eb;
+  --highlight-move: rgba(37, 99, 235, 0.45);
+  --highlight-last-move: rgba(255, 213, 79, 0.35);
+
+  --piece-white: #fafaf9;
+  --piece-black: #1c1917;
+}

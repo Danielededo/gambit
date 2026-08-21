@@ -1,0 +1,184 @@
+/* Layout and board styles. Colors come from CSS variables defined
+   by the active theme stylesheet (styles/themes/*.css). */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  background: var(--bg-color);
+  color: var(--text-color);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.5rem;
+  background: var(--panel-bg);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.app-title {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.btn {
+  padding: 0.5rem 1rem;
+  font-size: 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--accent-color);
+  color: var(--accent-text);
+  cursor: pointer;
+}
+
+.btn:hover {
+  filter: brightness(1.1);
+}
+
+.app-main {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 1.5rem;
+}
+
+/* Board */
+
+.board-panel {
+  flex: 0 1 auto;
+}
+
+.board {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  grid-template-rows: repeat(8, 1fr);
+  width: min(88vw, 640px);
+  aspect-ratio: 1 / 1;
+  border: 4px solid var(--board-border);
+  border-radius: 4px;
+  user-select: none;
+}
+
+.square {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(1.5rem, 8vw, 3.5rem);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.square.light {
+  background: var(--square-light);
+}
+
+.square.dark {
+  background: var(--square-dark);
+}
+
+.square.selected {
+  outline: 3px solid var(--highlight-selected);
+  outline-offset: -3px;
+}
+
+.square.legal-move::after {
+  content: "";
+  position: absolute;
+  width: 28%;
+  height: 28%;
+  border-radius: 50%;
+  background: var(--highlight-move);
+}
+
+.square.legal-capture::after {
+  content: "";
+  position: absolute;
+  inset: 6%;
+  border: 4px solid var(--highlight-move);
+  border-radius: 50%;
+}
+
+.square.last-move {
+  box-shadow: inset 0 0 0 100vmax var(--highlight-last-move);
+}
+
+.piece {
+  z-index: 1;
+  pointer-events: none;
+}
+
+.piece.white {
+  color: var(--piece-white);
+  text-shadow: 0 0 2px var(--piece-black);
+}
+
+.piece.black {
+  color: var(--piece-black);
+  text-shadow: 0 0 2px var(--piece-white);
+}
+
+/* Sidebar */
+
+.sidebar {
+  flex: 0 1 260px;
+  min-width: 220px;
+  background: var(--panel-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.sidebar-heading {
+  margin: 1rem 0 0.5rem;
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.game-status {
+  font-weight: 600;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  background: var(--status-bg);
+}
+
+.move-history {
+  margin: 0;
+  padding-left: 2rem;
+  max-height: 420px;
+  overflow-y: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.move-history li {
+  padding: 0.15rem 0;
+}
+
+.app-footer {
+  text-align: center;
+  padding: 0.75rem;
+  font-size: 0.85rem;
+  color: var(--muted-text);
+}
+
+@media (max-width: 720px) {
+  .app-main {
+    padding: 0.75rem;
+  }
+
+  .sidebar {
+    flex: 1 1 100%;
+  }
+}
