@@ -8,11 +8,39 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>♞</text></svg>" />
   <link rel="stylesheet" href="styles/main.css" />
   <link rel="stylesheet" href="styles/themes/light.css" id="theme-stylesheet" />
+  <script>
+    // Apply the saved theme before first paint to avoid a flash of the default theme.
+    try {
+      var savedTheme = localStorage.getItem("gambit-theme");
+      if (savedTheme && ["light", "dark", "blue", "sepia"].indexOf(savedTheme) !== -1) {
+        document.getElementById("theme-stylesheet").href = "styles/themes/" + savedTheme + ".css";
+      }
+    } catch (e) { /* localStorage unavailable */ }
+  </script>
 </head>
 <body>
   <header class="app-header">
     <h1 class="app-title">♞ Gambit</h1>
     <div class="app-controls">
+      <label class="control-field">
+        <span class="control-label">Mode</span>
+        <select id="mode-select">
+          <option value="ai" selected>Human vs AI</option>
+          <option value="human">Human vs Human</option>
+        </select>
+      </label>
+      <label class="control-field" id="difficulty-field">
+        <span class="control-label">Difficulty <span id="difficulty-value">3</span></span>
+        <input type="range" id="difficulty" min="1" max="8" step="1" value="3" />
+      </label>
+      <label class="control-field">
+        <span class="control-label">Theme</span>
+        <select id="theme-select"></select>
+      </label>
+      <label class="control-field">
+        <span class="control-label">Pieces</span>
+        <select id="piece-set-select"></select>
+      </label>
       <button id="reset-button" class="btn" type="button">New game</button>
     </div>
   </header>
@@ -30,7 +58,7 @@
   </main>
 
   <footer class="app-footer">
-    <p>Gambit — open source chess, MIT licensed.</p>
+    <p>Gambit — open source chess, MIT licensed. Engine: Stockfish (GPLv3). Play against the AI or a friend on the same device.</p>
   </footer>
 
   <script type="module" src="js/main.js"></script>

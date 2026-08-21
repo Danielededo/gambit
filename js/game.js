@@ -32,14 +32,17 @@ export class Game {
   /**
    * Try to play a move. Returns the chess.js move object on success,
    * or null if the move is illegal.
-   * Promotion defaults to queen until a promotion picker UI exists.
    */
-  move(from, to) {
+  move(from, to, promotion = "q") {
     try {
-      return this.chess.move({ from, to, promotion: "q" });
+      return this.chess.move({ from, to, promotion });
     } catch {
       return null;
     }
+  }
+
+  fen() {
+    return this.chess.fen();
   }
 
   /** Move history in standard algebraic notation (SAN). */

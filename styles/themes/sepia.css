@@ -1,0 +1,25 @@
+/* Sepia theme. Every theme must define this full set of variables. */
+
+:root {
+  --bg-color: #f5ecd9;
+  --text-color: #4a3826;
+  --muted-text: #8a7357;
+
+  --panel-bg: #fbf5e6;
+  --border-color: #d9c9a8;
+  --status-bg: #efe3c8;
+
+  --accent-color: #8b5e2f;
+  --accent-text: #fdf8ec;
+
+  --board-border: #5d4a30;
+  --square-light: #ead9b5;
+  --square-dark: #a97e4f;
+
+  --highlight-selected: #8b5e2f;
+  --highlight-move: rgba(139, 94, 47, 0.5);
+  --highlight-last-move: rgba(196, 148, 70, 0.35);
+
+  --piece-white: #fdf8ec;
+  --piece-black: #3a2c1a;
+}

@@ -1,0 +1,25 @@
+/* Blue theme. Every theme must define this full set of variables. */
+
+:root {
+  --bg-color: #eff6ff;
+  --text-color: #1e3a5f;
+  --muted-text: #64748b;
+
+  --panel-bg: #ffffff;
+  --border-color: #bfdbfe;
+  --status-bg: #dbeafe;
+
+  --accent-color: #1d4ed8;
+  --accent-text: #ffffff;
+
+  --board-border: #1e3a5f;
+  --square-light: #dee3e6;
+  --square-dark: #8ca2ad;
+
+  --highlight-selected: #1d4ed8;
+  --highlight-move: rgba(29, 78, 216, 0.45);
+  --highlight-last-move: rgba(59, 130, 246, 0.25);
+
+  --piece-white: #f8fafc;
+  --piece-black: #172a45;
+}

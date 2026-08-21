@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?><!--
+Minimal piece set for Gambit: flat geometric shapes.
+Original artwork created for this project. License: MIT (same as the project).
+Each piece is a 40x40 tile addressed by id (wk, wq, wr, wb, wn, wp, bk, ...).
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">
+  <defs>
+    <g id="min-base">
+      <rect x="12" y="28" width="16" height="3.5" rx="1.75"/>
+    </g>
+    <g id="min-p">
+      <use href="#min-base"/>
+      <circle cx="20" cy="21" r="5.5"/>
+    </g>
+    <g id="min-r">
+      <use href="#min-base"/>
+      <polygon points="13,28 13,10 16.5,10 16.5,14 18.25,14 18.25,10 21.75,10 21.75,14 23.5,14 23.5,10 27,10 27,28"/>
+    </g>
+    <g id="min-n">
+      <use href="#min-base"/>
+      <path d="M13 28 L13 24 C13 18 15 13 20 10 L21 7 L25 11 C27 13 28 16 27 18 L23 16 C22 20 25 22 25 28 Z"/>
+    </g>
+    <g id="min-b">
+      <use href="#min-base"/>
+      <polygon points="20,7 26,28 14,28"/>
+      <path d="M20 13 V21" fill="none"/>
+    </g>
+    <g id="min-q">
+      <use href="#min-base"/>
+      <polygon points="20,7 27,17.5 20,28 13,17.5"/>
+    </g>
+    <g id="min-k">
+      <use href="#min-base"/>
+      <circle cx="20" cy="20.5" r="7.5"/>
+      <rect x="18.75" y="4" width="2.5" height="7"/>
+      <rect x="16.25" y="6.25" width="7.5" height="2.5"/>
+    </g>
+  </defs>
+
+  <g id="wp" fill="#fafafa" stroke="#303030" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"><use href="#min-p"/></g>
+  <g id="wr" fill="#fafafa" stroke="#303030" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"><use href="#min-r"/></g>
+  <g id="wn" fill="#fafafa" stroke="#303030" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"><use href="#min-n"/></g>
+  <g id="wb" fill="#fafafa" stroke="#303030" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"><use href="#min-b"/></g>
+  <g id="wq" fill="#fafafa" stroke="#303030" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"><use href="#min-q"/></g>
+  <g id="wk" fill="#fafafa" stroke="#303030" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"><use href="#min-k"/></g>
+
+  <g id="bp" fill="#262626" stroke="#d9d9d9" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"><use href="#min-p"/></g>
+  <g id="br" fill="#262626" stroke="#d9d9d9" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"><use href="#min-r"/></g>
+  <g id="bn" fill="#262626" stroke="#d9d9d9" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"><use href="#min-n"/></g>
+  <g id="bb" fill="#262626" stroke="#d9d9d9" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"><use href="#min-b"/></g>
+  <g id="bq" fill="#262626" stroke="#d9d9d9" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"><use href="#min-q"/></g>
+  <g id="bk" fill="#262626" stroke="#d9d9d9" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"><use href="#min-k"/></g>
+</svg>

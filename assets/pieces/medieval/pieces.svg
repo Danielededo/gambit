@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?><!--
+Medieval piece set for Gambit: angular heraldic shapes
+(shield pawn, tower rook, horse knight, mitre bishop, crowns).
+Original artwork created for this project. License: MIT (same as the project).
+Each piece is a 40x40 tile addressed by id (wk, wq, wr, wb, wn, wp, bk, ...).
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">
+  <defs>
+    <g id="med-p">
+      <path d="M13 10 H27 V20 C27 26 20 31 20 31 C20 31 13 26 13 20 Z"/>
+      <path d="M20 13 V27 M15 17 H25" fill="none"/>
+    </g>
+    <g id="med-r">
+      <polygon points="13,31 13,9 17,9 17,13 18.9,13 18.9,9 21.1,9 21.1,13 23,13 23,9 27,9 27,31"/>
+      <path d="M18 31 V25.5 A2 2 0 0 1 22 25.5 V31" fill="none"/>
+    </g>
+    <g id="med-n">
+      <path d="M13 31 C13 23 14 17 19 13 L20 8 L25 12 C28 14 29 17 28 19 L23 17 C22 21 26 24 26 31 Z"/>
+    </g>
+    <g id="med-b">
+      <polygon points="20,7 27,17 25,26 15,26 13,17"/>
+      <rect x="13.5" y="26" width="13" height="5" rx="1"/>
+      <path d="M20 10 V17" fill="none"/>
+    </g>
+    <g id="med-q">
+      <path d="M12 31 L11 13 L16 19 L20 9 L24 19 L29 13 L28 31 Z"/>
+      <path d="M12.5 26 H27.5" fill="none"/>
+    </g>
+    <g id="med-k">
+      <polygon points="12,31 12,16 16,20 20,14 24,20 28,16 28,31"/>
+      <rect x="19" y="4" width="2" height="8"/>
+      <rect x="16.5" y="6.5" width="7" height="2"/>
+      <path d="M12.5 26 H27.5" fill="none"/>
+    </g>
+  </defs>
+
+  <g id="wp" fill="#f3e9d2" stroke="#4a3826" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"><use href="#med-p"/></g>
+  <g id="wr" fill="#f3e9d2" stroke="#4a3826" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"><use href="#med-r"/></g>
+  <g id="wn" fill="#f3e9d2" stroke="#4a3826" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"><use href="#med-n"/></g>
+  <g id="wb" fill="#f3e9d2" stroke="#4a3826" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"><use href="#med-b"/></g>
+  <g id="wq" fill="#f3e9d2" stroke="#4a3826" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"><use href="#med-q"/></g>
+  <g id="wk" fill="#f3e9d2" stroke="#4a3826" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"><use href="#med-k"/></g>
+
+  <g id="bp" fill="#2e2018" stroke="#d9c9a8" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"><use href="#med-p"/></g>
+  <g id="br" fill="#2e2018" stroke="#d9c9a8" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"><use href="#med-r"/></g>
+  <g id="bn" fill="#2e2018" stroke="#d9c9a8" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"><use href="#med-n"/></g>
+  <g id="bb" fill="#2e2018" stroke="#d9c9a8" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"><use href="#med-b"/></g>
+  <g id="bq" fill="#2e2018" stroke="#d9c9a8" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"><use href="#med-q"/></g>
+  <g id="bk" fill="#2e2018" stroke="#d9c9a8" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"><use href="#med-k"/></g>
+</svg>

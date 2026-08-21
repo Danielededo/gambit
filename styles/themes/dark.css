@@ -1,0 +1,25 @@
+/* Dark theme. Every theme must define this full set of variables. */
+
+:root {
+  --bg-color: #18181b;
+  --text-color: #e4e4e7;
+  --muted-text: #a1a1aa;
+
+  --panel-bg: #232327;
+  --border-color: #3f3f46;
+  --status-bg: #2c2c31;
+
+  --accent-color: #6366f1;
+  --accent-text: #ffffff;
+
+  --board-border: #0c0c0e;
+  --square-light: #9d9d97;
+  --square-dark: #52524e;
+
+  --highlight-selected: #818cf8;
+  --highlight-move: rgba(129, 140, 248, 0.55);
+  --highlight-last-move: rgba(250, 204, 21, 0.28);
+
+  --piece-white: #f4f4f5;
+  --piece-black: #101012;
+}
