@@ -46,10 +46,10 @@ Then open http://localhost:8000 (or the port shown).
 
 ## Deployment
 
-The site is deployed with GitHub Pages, no build required:
+The site is deployed with GitHub Pages via GitHub Actions, no build required:
 
-1. Repository **Settings → Pages**.
-2. Source: *Deploy from a branch*, branch `main`, folder `/ (root)`.
+1. Repository **Settings → Pages** → Source: *GitHub Actions*.
+2. Every push to `main` runs [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml), which publishes the repository root as-is.
 3. The game is served at `https://<user>.github.io/gambit/`.
 
 ## Project structure
