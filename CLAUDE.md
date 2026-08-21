@@ -3,7 +3,7 @@
 ## Git conventions
 
 - Default branch: `main`. Feature work happens on dedicated branches; keep `main` deployable.
-- Commit author for all commits made by Claude: `danielededo`.
+- Commit author for all commits made by Claude: name `danielededo`, email as set in the repository's local git config (`git config user.email`). Never write personal email addresses into repository files.
 - Deployment: GitHub Pages via `.github/workflows/deploy.yml` — every push to `main` publishes the repository root. No build step.
 
 ## Project conventions
