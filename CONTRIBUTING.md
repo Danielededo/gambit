@@ -1,62 +1,33 @@
 # Contributing to Gambit
 
-Thanks for your interest in improving Gambit! This document explains the project conventions and the most common ways to contribute.
-
-## Getting started
-
 ```bash
-git clone https://github.com/Danielededo/gambit.git
-cd gambit
+git clone https://github.com/Danielededo/gambit.git && cd gambit
 python -m http.server   # or: npx serve
 ```
 
-Open http://localhost:8000 and you are ready — there is no build step and no dependency install.
+No build step, no dependencies. Open http://localhost:8000 and you're running.
 
-## Code style
+## Conventions
 
-- Vanilla JavaScript (ES modules), HTML5, CSS3 — no frameworks, no build tools.
-- Format JavaScript with [Prettier](https://prettier.io/) defaults (`npx prettier --write js/`).
-- All code, comments, and documentation in English.
-- Keep modules focused: game rules in `game.js`, rendering in `board.js`, engine code in `ai.js`, and so on.
-- Prefer small, dependency-free solutions; anything vendored goes to `js/vendor/` with its license file.
+- Vanilla JavaScript (ES modules), no frameworks or build tools; everything in English.
+- Format with Prettier defaults: `npx prettier --write js/`.
+- Keep modules focused — rules in `game.js`, rendering in `board.js`, engine in `ai.js`, themes in `theme.js`, piece sets in `pieces.js`.
+- Vendored code goes to `js/vendor/` together with its license file.
 
-## Testing
+## Testing (manual)
 
-Testing is manual gameplay testing. Before opening a PR, verify at least:
+Before a PR, verify: a game vs the AI finishes without console errors; castling, en passant, and the promotion picker work; check/checkmate/stalemate show in the status bar; every theme and piece set renders (switch mid-game); preferences survive a reload; the layout holds at ~375px width.
 
-1. A full game vs the AI at difficulty 1 finishes without console errors.
-2. Human vs Human mode: castling, en passant, and pawn promotion (the picker must appear).
-3. Check, checkmate, and stalemate are reported in the status bar.
-4. Every theme and every piece set renders correctly (switch them mid-game).
-5. Preferences survive a page reload.
-6. The layout works at mobile width (~375px).
+## Add a theme
 
-## How to add a new theme
+Copy `styles/themes/light.css` to `styles/themes/<name>.css` and adjust — **define every variable**, themes are swapped whole. Register the name in `THEMES` (`js/theme.js`) and in the inline theme list in `index.html`. Check piece contrast on both square colors.
 
-1. Create `styles/themes/<name>.css` by copying `light.css` and adjusting the values. **Define every variable** — themes are swapped whole, there is no fallback layer.
-2. Register the theme in `js/theme.js` (`THEMES` map).
-3. Add the theme name to the FOUC-prevention list in the inline script in `index.html`.
-4. Check contrast: pieces must be readable on both square colors, in both piece colors.
+## Add a piece set
 
-## How to add a new piece set
+Create `assets/pieces/<name>/pieces.svg`: one sprite, 40×40 viewBox, one group per piece with ids `wk wq wr wb wn wp bk bq br bb bn bp` (see `minimal/pieces.svg` for a template that shares shapes between colors). Register it in `PIECE_SETS` (`js/pieces.js`). Only use artwork you have rights to, and state its license in the sprite's header comment.
 
-1. Create `assets/pieces/<name>/pieces.svg`: a single SVG sprite with a 40×40 viewBox containing one group per piece with ids `wk, wq, wr, wb, wn, wp, bk, bq, br, bb, bn, bp`. Look at `assets/pieces/minimal/pieces.svg` for a template that shares shapes between the two colors.
-2. Register the set in `js/pieces.js` (`PIECE_SETS` map).
-3. Only use artwork you have the rights to, and state its license in a comment at the top of the sprite file.
+## Bugs & ideas
 
-## Reporting bugs
+[Open an issue](https://github.com/Danielededo/gambit/issues) with what you did, what you expected, browser/OS, and any console errors. Roadmap contributions (see [README](README.md#roadmap)) are especially welcome.
 
-Open a [GitHub issue](https://github.com/Danielededo/gambit/issues) including:
-
-- What you did (moves played, controls used) and what you expected.
-- Browser and OS.
-- Any errors from the browser console (F12 → Console).
-- A screenshot if the problem is visual.
-
-## Future feature ideas
-
-Contributions towards the roadmap in the [README](README.md#roadmap) are especially welcome: multiplayer with PIN, move replay, engine analysis, timers, ELO tracking, animations, sounds, board flip, PGN import, tournaments.
-
-## License
-
-By contributing you agree that your contributions are licensed under the [MIT License](LICENSE).
+By contributing you agree your contributions are licensed under the [MIT License](LICENSE).
