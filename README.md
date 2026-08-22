@@ -57,6 +57,8 @@ The repo ships a [`render.yaml`](render.yaml) blueprint:
 
 **Cost:** the free web-service plan is free with no time limit, but it **sleeps after ~15 minutes without traffic** — the next visit takes ~30s to wake, and any in-memory online game is lost on wake. That's the trade-off for paying nothing; persistence (roadmap) removes the data-loss part, and a paid plan (or a keep-alive ping) removes the sleep. Any other Node host works too — just set `TRUST_PROXY=1`.
 
+**Automatic redeploys:** make sure the service watches branch `main` with Auto-Deploy on (Settings → Build & Deploy). As a belt-and-braces fallback, [`deploy-render.yml`](.github/workflows/deploy-render.yml) calls the service's Deploy Hook on every push to `main`: copy the hook URL from Render (Settings → Deploy Hook) into a repo secret named `RENDER_DEPLOY_HOOK` and deploys will always trigger, whatever the Render-side integration state.
+
 ### Server configuration
 
 All optional, set via environment variables:
