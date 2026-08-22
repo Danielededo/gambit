@@ -95,7 +95,7 @@ export class GameManager {
       throw new GameError("not_found", "No joinable game with that PIN");
     }
 
-    game.players.b = { token: randomUUID(), socket: null, chatTimes: [] };
+    game.players.b = { token: randomUUID(), socket: null, chatTimes: [], departed: false };
     game.status = "active";
     game.touch();
     this.byToken.set(game.players.b.token, game);
@@ -119,7 +119,10 @@ export class GameManager {
   sweep(now = Date.now()) {
     for (const game of this.byPin.values()) {
       const age = now - game.lastActivity;
+      const bothDeparted =
+        game.players.w.departed && Boolean(game.players.b && game.players.b.departed);
       const expired =
+        bothDeparted ||
         (game.status === "waiting" && age > WAITING_TTL_MS) ||
         (game.status === "finished" && age > FINISHED_TTL_MS) ||
         (game.status === "active" && age > ABANDON_MS && !game.anyoneConnected());
@@ -150,7 +153,7 @@ export class Game {
     this.drawOffer = null; // color with a pending draw offer, or null
     this.rematchOffer = null; // color with a pending rematch offer, or null
     this.players = {
-      w: { token: randomUUID(), socket: null, chatTimes: [] },
+      w: { token: randomUUID(), socket: null, chatTimes: [], departed: false },
       b: null,
     };
     this.lastActivity = Date.now();
@@ -208,9 +211,32 @@ export class Game {
     this.touch();
   }
 
+  /**
+   * Permanently leave the game (distinct from a disconnect, which can be
+   * resumed): resigns if the game is running and vacates the seat.
+   */
+  leave(color) {
+    if (this.status === "active") this.resign(color);
+    const player = this.players[color];
+    if (player) {
+      player.departed = true;
+      player.socket = null;
+    }
+    this.touch();
+  }
+
+  /** Throw when the opponent has permanently left (offers would be futile). */
+  requireOpponentPresent(color) {
+    const opponent = this.opponentOf(color);
+    if (!opponent || opponent.departed) {
+      throw new GameError("opponent_left", "Your opponent has left the game");
+    }
+  }
+
   /** Offer a draw; offering while the opponent's offer is pending accepts it. */
   offerDraw(color) {
     if (this.status !== "active") throw new GameError("not_active", "The game is not in progress");
+    this.requireOpponentPresent(color);
     if (this.drawOffer === color) return;
     if (this.drawOffer && this.drawOffer !== color) {
       this.finishAsDraw();
@@ -244,6 +270,7 @@ export class Game {
   /** Offer a rematch; offering while the opponent's offer is pending starts it. */
   offerRematch(color) {
     if (this.status !== "finished") throw new GameError("not_finished", "Rematch is only available after the game ends");
+    this.requireOpponentPresent(color);
     if (this.rematchOffer === color) return;
     if (this.rematchOffer && this.rematchOffer !== color) {
       this.startRematch();
@@ -257,6 +284,7 @@ export class Game {
     if (this.status !== "finished" || !this.rematchOffer || this.rematchOffer === color) {
       throw new GameError("no_offer", "There is no rematch offer to accept");
     }
+    this.requireOpponentPresent(color);
     this.startRematch();
   }
 
@@ -326,6 +354,7 @@ export class Game {
       drawOffer: this.drawOffer,
       rematchOffer: this.rematchOffer,
       opponentConnected: Boolean(this.opponentOf(color)?.socket),
+      opponentLeft: Boolean(this.opponentOf(color)?.departed),
     };
   }
 }

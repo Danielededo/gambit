@@ -106,7 +106,7 @@ const httpServer = createServer(async (req, res) => {
 
 // --- WebSocket protocol ---
 // Client -> server: create | join {pin} | resume {token} | move {from,to,promotion} | resign
-//                   | chat {text} | draw_offer | draw_accept | draw_decline
+//                   | leave | chat {text} | draw_offer | draw_accept | draw_decline
 //                   | rematch_offer | rematch_accept | rematch_decline
 // Server -> client: created {pin,token} + state | joined {token} + state | state
 //                   | chat {from,text} | error {code,message}
@@ -212,6 +212,23 @@ wss.on("connection", (socket, request) => {
           if (!seat) throw new GameError("no_game", "Create, join, or resume a game first");
           seat.game.resign(seatColor());
           broadcastState(seat.game);
+          break;
+        }
+        case "leave": {
+          // Permanent exit (unlike a disconnect): resigns a running game,
+          // vacates the seat, and invalidates the reconnect token.
+          if (!seat) break; // idempotent
+          const { game, token } = seat;
+          const color = game.colorOf(token);
+          seat = null;
+          manager.byToken.delete(token);
+          if (game.status === "waiting") {
+            // Creator left before anyone joined: free the PIN and cap slot.
+            manager.removeGame(game);
+          } else {
+            game.leave(color);
+            broadcastState(game); // tells the opponent you're gone for good
+          }
           break;
         }
         case "chat": {
