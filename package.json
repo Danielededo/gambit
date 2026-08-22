@@ -1,6 +1,6 @@
 {
   "name": "gambit",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "Chess in the browser: local play against Stockfish, or online games via PIN.",
   "type": "module",
   "license": "MIT",

@@ -13,7 +13,7 @@ const MODE_STORAGE_KEY = "gambit-mode";
 const DIFFICULTY_STORAGE_KEY = "gambit-difficulty";
 const AI_COLOR = "b"; // the human plays White in Human vs AI mode
 // Shown in the footer; bump on release so a stale cached client is obvious.
-const APP_VERSION = "0.4.1";
+const APP_VERSION = "0.5.0";
 
 const localGame = new Game();
 const ai = new AI();
@@ -56,6 +56,13 @@ let aiGeneration = 0;
 // Online play state (null while in a local mode).
 let session = null;
 let onlineGame = null;
+
+// PIN from an invite link (?pin=NNNNNN), consumed on the first online start.
+let invitePin = null;
+{
+  const fromUrl = new URLSearchParams(location.search).get("pin");
+  if (fromUrl && /^\d{6}$/.test(fromUrl)) invitePin = fromUrl;
+}
 
 // How many half-moves have already been given a sound (avoids double-playing
 // an online move: once optimistically, once on the server echo).
@@ -247,6 +254,17 @@ function startOnline() {
   });
   onlineGame = new OnlineGame(session);
 
+  if (invitePin) {
+    // Opened via an invite link (?pin=NNNNNN): join directly, and clean the
+    // URL so a later reload resumes via the token instead of re-joining.
+    const pin = invitePin;
+    invitePin = null;
+    history.replaceState(null, "", location.pathname);
+    session.connect({ type: "join", pin });
+    updateOnlineUi();
+    updateSidebar(`Joining game ${pin}…`);
+    return;
+  }
   const token = OnlineSession.savedToken();
   session.connect(token ? { type: "resume", token } : null);
   updateOnlineUi();
@@ -384,34 +402,59 @@ createGameButton.addEventListener("click", () => {
   if (session) session.send({ type: "create" });
 });
 
-let copyPinTimer = null;
-copyPinButton.addEventListener("click", async () => {
-  const pin = pinValue.textContent.trim();
-  if (!pin) return;
-  let copied = false;
+async function copyText(text) {
   try {
-    await navigator.clipboard.writeText(pin);
-    copied = true;
+    await navigator.clipboard.writeText(text);
+    return true;
   } catch {
     // Fallback for contexts without the async clipboard API.
     try {
       const scratch = document.createElement("textarea");
-      scratch.value = pin;
+      scratch.value = text;
       scratch.style.position = "fixed";
       scratch.style.opacity = "0";
       document.body.appendChild(scratch);
       scratch.select();
-      copied = document.execCommand("copy");
+      const ok = document.execCommand("copy");
       scratch.remove();
+      return ok;
     } catch {
-      copied = false;
+      return false;
     }
   }
-  if (copied) {
-    copyPinButton.classList.add("copied");
-    clearTimeout(copyPinTimer);
-    copyPinTimer = setTimeout(() => copyPinButton.classList.remove("copied"), 1500);
+}
+
+const copiedTimers = new WeakMap();
+function flashCopied(button) {
+  button.classList.add("copied");
+  clearTimeout(copiedTimers.get(button));
+  copiedTimers.set(button, setTimeout(() => button.classList.remove("copied"), 1500));
+}
+
+/** Invite URL for the current game, derived from wherever the app is hosted. */
+function inviteLink(pin) {
+  return `${location.origin}${location.pathname}?pin=${pin}`;
+}
+
+copyPinButton.addEventListener("click", async () => {
+  const pin = pinValue.textContent.trim();
+  if (pin && (await copyText(pin))) flashCopied(copyPinButton);
+});
+
+const sharePinButton = document.getElementById("share-pin");
+sharePinButton.addEventListener("click", async () => {
+  const pin = pinValue.textContent.trim();
+  if (!pin) return;
+  const url = inviteLink(pin);
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: "Gambit", text: "Play chess with me!", url });
+      return;
+    } catch {
+      // Share sheet dismissed or unavailable: fall back to copying.
+    }
   }
+  if (await copyText(url)) flashCopied(sharePinButton);
 });
 
 joinGameButton.addEventListener("click", () => {
@@ -557,10 +600,20 @@ async function serverAvailable() {
 }
 
 serverAvailable().then((available) => {
-  if (!available) return; // static release: online stays hidden
+  if (!available) {
+    if (invitePin) updateSidebar("This deployment has no online server — ask your friend for the full game link");
+    return; // static release: online stays hidden
+  }
   modeSelect.appendChild(onlineOption);
-  if (savedMode === "online") {
+  if (savedMode === "online" || invitePin) {
     modeSelect.value = "online";
+    try {
+      // Persist the programmatic switch (change events do this for manual
+      // ones), so a reload after joining via invite link resumes the game.
+      localStorage.setItem(MODE_STORAGE_KEY, "online");
+    } catch {
+      // ignore
+    }
     applyMode();
   }
 });
