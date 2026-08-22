@@ -40,6 +40,16 @@ Static-only alternative (local modes, no online): `python -m http.server -d clie
 
 Full deployment needs a Node host (`npm start`, honors `PORT`). The GitHub Pages workflow ([`deploy.yml`](.github/workflows/deploy.yml)) publishes the static client only — local modes work there, online play does not.
 
+### Deploy the server on Render (free)
+
+The repo ships a [`render.yaml`](render.yaml) blueprint:
+
+1. Push to GitHub, then in [Render](https://render.com) → **New + → Blueprint** → pick this repo.
+2. Render reads `render.yaml`, builds with `npm install`, starts with `npm start`, and health-checks `/healthz`. `TRUST_PROXY=1` is set for you.
+3. The app is served at `https://<name>.onrender.com` — local **and** online modes, over `wss://` automatically.
+
+**Cost:** the free web-service plan is free with no time limit, but it **sleeps after ~15 minutes without traffic** — the next visit takes ~30s to wake, and any in-memory online game is lost on wake. That's the trade-off for paying nothing; persistence (roadmap) removes the data-loss part, and a paid plan (or a keep-alive ping) removes the sleep. Any other Node host works too — just set `TRUST_PROXY=1`.
+
 ### Server configuration
 
 All optional, set via environment variables:
