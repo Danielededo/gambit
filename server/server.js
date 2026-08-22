@@ -59,6 +59,15 @@ const MIME = {
   ".md": "text/plain; charset=utf-8",
 };
 
+// Entry files must never be served stale, or a redeploy leaves visitors on an
+// old shell/module until they hard-refresh. These always revalidate; heavier
+// assets (wasm/images) whose contents effectively don't change get cached.
+const REVALIDATE_EXT = new Set([".html", ".js", ".css", ".json"]);
+function cacheControlFor(ext) {
+  if (REVALIDATE_EXT.has(ext)) return "no-cache";
+  return "public, max-age=86400"; // svg, png, wasm, ico, txt
+}
+
 const manager = new GameManager();
 
 // --- Static file serving ---
@@ -83,8 +92,12 @@ const httpServer = createServer(async (req, res) => {
   }
 
   try {
+    const ext = extname(filePath);
     const body = await readFile(filePath);
-    res.writeHead(200, { "Content-Type": MIME[extname(filePath)] || "application/octet-stream" });
+    res.writeHead(200, {
+      "Content-Type": MIME[ext] || "application/octet-stream",
+      "Cache-Control": cacheControlFor(ext),
+    });
     res.end(req.method === "HEAD" ? undefined : body);
   } catch {
     res.writeHead(404, { "Content-Type": "text/plain" }).end("Not found");
