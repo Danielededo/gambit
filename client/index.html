@@ -63,8 +63,27 @@
       </div>
       <div id="pin-banner" class="pin-banner" hidden>PIN <strong id="pin-value"></strong></div>
       <div id="game-status" class="game-status" role="status">White to move</div>
+      <div id="offer-banner" class="offer-banner" hidden>
+        <span id="offer-text"></span>
+        <div class="offer-actions">
+          <button id="offer-accept" class="btn btn-small" type="button">Accept</button>
+          <button id="offer-decline" class="btn btn-small btn-secondary" type="button">Decline</button>
+        </div>
+      </div>
+      <div id="online-actions" class="online-actions" hidden>
+        <button id="draw-button" class="btn btn-small btn-secondary" type="button">Offer draw</button>
+        <button id="rematch-button" class="btn btn-small" type="button" hidden>Rematch</button>
+      </div>
       <h2 class="sidebar-heading">Moves</h2>
       <ol id="move-history" class="move-history"></ol>
+      <section id="chat-panel" class="chat-panel" hidden aria-label="Game chat">
+        <h2 class="sidebar-heading">Chat</h2>
+        <div id="chat-messages" class="chat-messages" aria-live="polite"></div>
+        <form id="chat-form" class="chat-form">
+          <input id="chat-input" maxlength="500" placeholder="Message…" autocomplete="off" aria-label="Chat message" />
+          <button class="btn btn-small" type="submit">Send</button>
+        </form>
+      </section>
     </aside>
   </main>
 

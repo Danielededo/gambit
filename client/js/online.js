@@ -11,7 +11,8 @@ export class OnlineSession {
    * @param {{ onState: (state: object) => void,
    *           onError: (code: string, message: string) => void,
    *           onConnection: (connected: boolean) => void,
-   *           onSeated: (token: string, extra: object) => void }} handlers
+   *           onSeated: (token: string, extra: object) => void,
+   *           onChat?: (from: string, text: string) => void }} handlers
    */
   constructor(handlers) {
     this.handlers = handlers;
@@ -59,6 +60,8 @@ export class OnlineSession {
       }
       if (msg.type === "state") {
         this.handlers.onState(msg);
+      } else if (msg.type === "chat") {
+        if (this.handlers.onChat) this.handlers.onChat(msg.from, String(msg.text ?? ""));
       } else if (msg.type === "error") {
         this.handlers.onError(msg.code, msg.message);
       } else if (msg.type === "created" || msg.type === "joined" || msg.type === "resumed") {
@@ -158,6 +161,34 @@ export class OnlineGame {
 
   resign() {
     this.session.send({ type: "resign" });
+  }
+
+  sendChat(text) {
+    this.session.send({ type: "chat", text });
+  }
+
+  offerDraw() {
+    this.session.send({ type: "draw_offer" });
+  }
+
+  acceptDraw() {
+    this.session.send({ type: "draw_accept" });
+  }
+
+  declineDraw() {
+    this.session.send({ type: "draw_decline" });
+  }
+
+  offerRematch() {
+    this.session.send({ type: "rematch_offer" });
+  }
+
+  acceptRematch() {
+    this.session.send({ type: "rematch_accept" });
+  }
+
+  declineRematch() {
+    this.session.send({ type: "rematch_decline" });
   }
 
   history() {

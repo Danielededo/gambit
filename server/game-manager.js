@@ -23,7 +23,8 @@ export class GameManager {
   constructor() {
     /** @type {Map<string, Game>} pin -> game */
     this.byPin = new Map();
-    /** @type {Map<string, {game: Game, color: string}>} player token -> seat */
+    /** @type {Map<string, Game>} player token -> game (color derives from the
+     * token at lookup time, since a rematch swaps the players' colors) */
     this.byToken = new Map();
     /** @type {Map<string, {count: number, first: number}>} ip -> recent join failures */
     this.joinFailures = new Map();
@@ -58,7 +59,7 @@ export class GameManager {
 
     const game = new Game(pin, ownerIp);
     this.byPin.set(pin, game);
-    this.byToken.set(game.players.w.token, { game, color: "w" });
+    this.byToken.set(game.players.w.token, game);
     return game;
   }
 
@@ -94,17 +95,18 @@ export class GameManager {
       throw new GameError("not_found", "No joinable game with that PIN");
     }
 
-    game.players.b = { token: randomUUID(), socket: null };
+    game.players.b = { token: randomUUID(), socket: null, chatTimes: [] };
     game.status = "active";
     game.touch();
-    this.byToken.set(game.players.b.token, { game, color: "b" });
+    this.byToken.set(game.players.b.token, game);
     return game;
   }
 
   resume(token) {
-    const seat = this.byToken.get(token);
-    if (!seat) throw new GameError("not_found", "Unknown or expired game");
-    return seat;
+    const game = this.byToken.get(token);
+    const color = game ? game.colorOf(token) : null;
+    if (!game || !color) throw new GameError("not_found", "Unknown or expired game");
+    return { game, color };
   }
 
   removeGame(game) {
@@ -133,6 +135,11 @@ export class GameManager {
   }
 }
 
+// Chat limits: plain-text only, bounded length, small sliding-window rate cap.
+const CHAT_MAX_LENGTH = 500;
+const CHAT_WINDOW_MS = 5000;
+const CHAT_MAX_PER_WINDOW = 5;
+
 export class Game {
   constructor(pin, ownerIp = null) {
     this.pin = pin;
@@ -140,11 +147,20 @@ export class Game {
     this.chess = new Chess();
     this.status = "waiting"; // waiting | active | finished
     this.result = null; // { winner: "w"|"b"|null, reason: string }
+    this.drawOffer = null; // color with a pending draw offer, or null
+    this.rematchOffer = null; // color with a pending rematch offer, or null
     this.players = {
-      w: { token: randomUUID(), socket: null },
+      w: { token: randomUUID(), socket: null, chatTimes: [] },
       b: null,
     };
     this.lastActivity = Date.now();
+  }
+
+  /** Which color a player token currently holds (colors swap on rematch). */
+  colorOf(token) {
+    if (this.players.w.token === token) return "w";
+    if (this.players.b && this.players.b.token === token) return "b";
+    return null;
   }
 
   touch() {
@@ -170,6 +186,7 @@ export class Game {
     } catch {
       throw new GameError("illegal_move", "Illegal move");
     }
+    this.drawOffer = null; // playing a move declines any pending draw offer
     this.touch();
 
     if (this.chess.isGameOver()) {
@@ -187,7 +204,101 @@ export class Game {
     if (this.status === "finished") return;
     this.status = "finished";
     this.result = { winner: color === "w" ? "b" : "w", reason: "resignation" };
+    this.drawOffer = null;
     this.touch();
+  }
+
+  /** Offer a draw; offering while the opponent's offer is pending accepts it. */
+  offerDraw(color) {
+    if (this.status !== "active") throw new GameError("not_active", "The game is not in progress");
+    if (this.drawOffer === color) return;
+    if (this.drawOffer && this.drawOffer !== color) {
+      this.finishAsDraw();
+      return;
+    }
+    this.drawOffer = color;
+    this.touch();
+  }
+
+  acceptDraw(color) {
+    if (this.status !== "active" || !this.drawOffer || this.drawOffer === color) {
+      throw new GameError("no_offer", "There is no draw offer to accept");
+    }
+    this.finishAsDraw();
+  }
+
+  declineDraw(color) {
+    if (this.drawOffer && this.drawOffer !== color) {
+      this.drawOffer = null;
+      this.touch();
+    }
+  }
+
+  finishAsDraw() {
+    this.status = "finished";
+    this.result = { winner: null, reason: "agreement" };
+    this.drawOffer = null;
+    this.touch();
+  }
+
+  /** Offer a rematch; offering while the opponent's offer is pending starts it. */
+  offerRematch(color) {
+    if (this.status !== "finished") throw new GameError("not_finished", "Rematch is only available after the game ends");
+    if (this.rematchOffer === color) return;
+    if (this.rematchOffer && this.rematchOffer !== color) {
+      this.startRematch();
+      return;
+    }
+    this.rematchOffer = color;
+    this.touch();
+  }
+
+  acceptRematch(color) {
+    if (this.status !== "finished" || !this.rematchOffer || this.rematchOffer === color) {
+      throw new GameError("no_offer", "There is no rematch offer to accept");
+    }
+    this.startRematch();
+  }
+
+  declineRematch(color) {
+    if (this.rematchOffer && this.rematchOffer !== color) {
+      this.rematchOffer = null;
+      this.touch();
+    }
+  }
+
+  /** Fresh board on the same PIN and connections, with colors swapped. */
+  startRematch() {
+    const previousWhite = this.players.w;
+    this.players.w = this.players.b;
+    this.players.b = previousWhite;
+    this.chess = new Chess();
+    this.status = "active";
+    this.result = null;
+    this.drawOffer = null;
+    this.rematchOffer = null;
+    this.touch();
+  }
+
+  /** Validate a chat message from `color`; returns the text to relay. */
+  chatFrom(color, rawText) {
+    if (this.status === "waiting" || !this.players.b) {
+      throw new GameError("chat_no_opponent", "There is nobody to chat with yet");
+    }
+    const text = String(rawText ?? "").trim();
+    if (!text) throw new GameError("chat_empty", "Empty message");
+    if (text.length > CHAT_MAX_LENGTH) {
+      throw new GameError("chat_too_long", `Messages are limited to ${CHAT_MAX_LENGTH} characters`);
+    }
+    const player = this.players[color];
+    const now = Date.now();
+    player.chatTimes = player.chatTimes.filter((t) => now - t < CHAT_WINDOW_MS);
+    if (player.chatTimes.length >= CHAT_MAX_PER_WINDOW) {
+      throw new GameError("chat_too_fast", "You are sending messages too quickly");
+    }
+    player.chatTimes.push(now);
+    this.touch();
+    return text;
   }
 
   abandon(color) {
@@ -212,6 +323,8 @@ export class Game {
       inCheck: this.chess.inCheck(),
       history: this.chess.history(),
       lastMove: last ? { from: last.from, to: last.to } : null,
+      drawOffer: this.drawOffer,
+      rematchOffer: this.rematchOffer,
       opponentConnected: Boolean(this.opponentOf(color)?.socket),
     };
   }

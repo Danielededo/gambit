@@ -106,7 +106,10 @@ const httpServer = createServer(async (req, res) => {
 
 // --- WebSocket protocol ---
 // Client -> server: create | join {pin} | resume {token} | move {from,to,promotion} | resign
-// Server -> client: created {pin,token} + state | joined {token} + state | state | error {code,message}
+//                   | chat {text} | draw_offer | draw_accept | draw_decline
+//                   | rematch_offer | rematch_accept | rematch_decline
+// Server -> client: created {pin,token} + state | joined {token} + state | state
+//                   | chat {from,text} | error {code,message}
 
 const wss = new WebSocketServer({
   server: httpServer,
@@ -136,19 +139,23 @@ wss.on("connection", (socket, request) => {
     socket.isAlive = true;
   });
 
-  // The seat this socket occupies once created/joined/resumed.
-  let seat = null; // { game, color }
+  // The seat this socket occupies once created/joined/resumed. The color is
+  // derived from the token on every use because a rematch swaps colors.
+  let seat = null; // { game, token }
+  const seatColor = () => seat.game.colorOf(seat.token);
 
   const send = (payload) => {
     if (socket.readyState === socket.OPEN) socket.send(JSON.stringify(payload));
   };
   const sendError = (code, message) => send({ type: "error", code, message });
 
-  const attach = (game, color) => {
-    seat = { game, color };
-    const existing = game.players[color].socket;
-    if (existing && existing !== socket) existing.close(4000, "replaced by a new connection");
-    game.players[color].socket = socket;
+  const attach = (game, token) => {
+    seat = { game, token };
+    const player = game.players[game.colorOf(token)];
+    if (player.socket && player.socket !== socket) {
+      player.socket.close(4000, "replaced by a new connection");
+    }
+    player.socket = socket;
   };
 
   const broadcastState = (game) => {
@@ -174,7 +181,7 @@ wss.on("connection", (socket, request) => {
         case "create": {
           if (seat) throw new GameError("already_seated", "This connection is already in a game");
           const game = manager.createGame(ip);
-          attach(game, "w");
+          attach(game, game.players.w.token);
           send({ type: "created", pin: game.pin, token: game.players.w.token });
           send(game.stateFor("w"));
           break;
@@ -182,7 +189,7 @@ wss.on("connection", (socket, request) => {
         case "join": {
           if (seat) throw new GameError("already_seated", "This connection is already in a game");
           const game = manager.joinGame(msg.pin, ip);
-          attach(game, "b");
+          attach(game, game.players.b.token);
           send({ type: "joined", token: game.players.b.token });
           broadcastState(game);
           break;
@@ -190,20 +197,66 @@ wss.on("connection", (socket, request) => {
         case "resume": {
           if (seat) throw new GameError("already_seated", "This connection is already in a game");
           const found = manager.resume(msg.token);
-          attach(found.game, found.color);
+          attach(found.game, msg.token);
           send({ type: "resumed", token: msg.token });
           broadcastState(found.game);
           break;
         }
         case "move": {
           if (!seat) throw new GameError("no_game", "Create, join, or resume a game first");
-          seat.game.playMove(seat.color, { from: msg.from, to: msg.to, promotion: msg.promotion });
+          seat.game.playMove(seatColor(), { from: msg.from, to: msg.to, promotion: msg.promotion });
           broadcastState(seat.game);
           break;
         }
         case "resign": {
           if (!seat) throw new GameError("no_game", "Create, join, or resume a game first");
-          seat.game.resign(seat.color);
+          seat.game.resign(seatColor());
+          broadcastState(seat.game);
+          break;
+        }
+        case "chat": {
+          if (!seat) throw new GameError("no_game", "Create, join, or resume a game first");
+          const color = seatColor();
+          const text = seat.game.chatFrom(color, msg.text);
+          const opponent = seat.game.opponentOf(color);
+          if (opponent && opponent.socket && opponent.socket.readyState === opponent.socket.OPEN) {
+            opponent.socket.send(JSON.stringify({ type: "chat", from: color, text }));
+          }
+          break;
+        }
+        case "draw_offer": {
+          if (!seat) throw new GameError("no_game", "Create, join, or resume a game first");
+          seat.game.offerDraw(seatColor());
+          broadcastState(seat.game);
+          break;
+        }
+        case "draw_accept": {
+          if (!seat) throw new GameError("no_game", "Create, join, or resume a game first");
+          seat.game.acceptDraw(seatColor());
+          broadcastState(seat.game);
+          break;
+        }
+        case "draw_decline": {
+          if (!seat) throw new GameError("no_game", "Create, join, or resume a game first");
+          seat.game.declineDraw(seatColor());
+          broadcastState(seat.game);
+          break;
+        }
+        case "rematch_offer": {
+          if (!seat) throw new GameError("no_game", "Create, join, or resume a game first");
+          seat.game.offerRematch(seatColor());
+          broadcastState(seat.game);
+          break;
+        }
+        case "rematch_accept": {
+          if (!seat) throw new GameError("no_game", "Create, join, or resume a game first");
+          seat.game.acceptRematch(seatColor());
+          broadcastState(seat.game);
+          break;
+        }
+        case "rematch_decline": {
+          if (!seat) throw new GameError("no_game", "Create, join, or resume a game first");
+          seat.game.declineRematch(seatColor());
           broadcastState(seat.game);
           break;
         }
@@ -226,8 +279,9 @@ wss.on("connection", (socket, request) => {
     else connectionsPerIp.delete(ip);
 
     if (!seat) return;
-    const { game, color } = seat;
-    if (game.players[color].socket === socket) {
+    const { game } = seat;
+    const color = seatColor();
+    if (color && game.players[color].socket === socket) {
       game.players[color].socket = null;
       game.touch();
       broadcastState(game); // tells the opponent you disconnected
