@@ -455,8 +455,10 @@ pieceSetSelect.addEventListener("change", () => {
   updateCaptured();
 });
 
-// iOS/Safari keeps WebAudio silent until it is primed inside a real tap.
-document.addEventListener("pointerdown", () => sound.unlock(), { once: true, capture: true });
+// iOS/Safari keeps WebAudio silent until it is primed inside a real tap;
+// retried on every tap (cheap no-op once primed) in case the first attempt
+// to start the media route is rejected.
+document.addEventListener("pointerdown", () => sound.unlock(), { capture: true });
 
 // --- Startup ---
 

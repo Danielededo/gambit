@@ -6,6 +6,13 @@ const STORAGE_KEY = "gambit-sound";
 
 let ctx = null;
 let enabled = true;
+// iOS mutes WebAudio while the ring/silent switch is on silent, but treats
+// <audio> element playback as media (like a video), which keeps playing. So
+// tones are routed through a MediaStream into a hidden <audio> element once
+// unlock() has managed to start it; direct WebAudio output is the fallback.
+let mediaDest = null;
+let mediaEl = null;
+let mediaReady = false;
 
 try {
   enabled = localStorage.getItem(STORAGE_KEY) !== "off";
@@ -18,9 +25,24 @@ function context() {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return null;
     ctx = new AC();
+    try {
+      mediaDest = ctx.createMediaStreamDestination();
+      mediaEl = document.createElement("audio");
+      mediaEl.srcObject = mediaDest.stream;
+      mediaEl.setAttribute("playsinline", "");
+      mediaEl.volume = 1;
+      mediaEl.style.display = "none";
+      document.body.appendChild(mediaEl);
+    } catch {
+      mediaDest = null; // stream routing unsupported: use direct output
+    }
   }
   if (ctx.state === "suspended") ctx.resume();
   return ctx;
+}
+
+function output(ac) {
+  return mediaReady && mediaDest ? mediaDest : ac.destination;
 }
 
 /** One decaying tone. */
@@ -32,7 +54,7 @@ function tone(ac, { freq, type = "sine", at = 0, duration = 0.08, gain = 0.12 })
   osc.frequency.setValueAtTime(freq, t0);
   amp.gain.setValueAtTime(gain, t0);
   amp.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
-  osc.connect(amp).connect(ac.destination);
+  osc.connect(amp).connect(output(ac));
   osc.start(t0);
   osc.stop(t0 + duration + 0.02);
 }
@@ -76,6 +98,7 @@ export const sound = {
    */
   unlock() {
     try {
+      if (mediaReady && ctx && ctx.state === "running") return; // already primed
       const ac = context();
       if (!ac) return;
       const buffer = ac.createBuffer(1, 1, 22050);
@@ -83,6 +106,21 @@ export const sound = {
       source.buffer = buffer;
       source.connect(ac.destination);
       source.start(0);
+      // Start the media element inside the gesture; once playing, all tones
+      // flow through it and survive the iOS silent switch.
+      if (mediaEl) {
+        const playing = mediaEl.play();
+        if (playing && playing.then) {
+          playing.then(
+            () => {
+              mediaReady = true;
+            },
+            () => {
+              mediaReady = false;
+            }
+          );
+        }
+      }
     } catch {
       // best effort
     }
