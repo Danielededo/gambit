@@ -13,7 +13,7 @@ const MODE_STORAGE_KEY = "gambit-mode";
 const DIFFICULTY_STORAGE_KEY = "gambit-difficulty";
 const AI_COLOR = "b"; // the human plays White in Human vs AI mode
 // Shown in the footer; bump on release so a stale cached client is obvious.
-const APP_VERSION = "0.6.0";
+const APP_VERSION = "0.6.1";
 
 const localGame = new Game();
 const ai = new AI();
