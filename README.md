@@ -40,6 +40,22 @@ Static-only alternative (local modes, no online): `python -m http.server -d clie
 
 Full deployment needs a Node host (`npm start`, honors `PORT`). The GitHub Pages workflow ([`deploy.yml`](.github/workflows/deploy.yml)) publishes the static client only — local modes work there, online play does not.
 
+### Server configuration
+
+All optional, set via environment variables:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `PORT` | `8080` | HTTP/WebSocket port |
+| `MAX_ACTIVE_GAMES` | `20` | Global cap on concurrent online games |
+| `MAX_GAMES_PER_IP` | `3` | Live games one client (IP) may own — stops one person exhausting the global cap |
+| `MAX_CONNECTIONS_PER_IP` | `20` | Concurrent WebSocket connections per IP |
+| `JOIN_FAILURE_LIMIT` | `10` | Failed PIN joins per IP per minute before a short lockout (anti brute-force) |
+| `ALLOWED_ORIGINS` | same-origin | Comma-separated origins allowed to open control sockets |
+| `TRUST_PROXY` | `0` | Set to `1` when behind a proxy/load balancer so the client IP is read from `X-Forwarded-For` |
+
+> **Behind a proxy (Render, Fly, Railway, …): set `TRUST_PROXY=1`.** Otherwise every request appears to come from the proxy's IP and the per-IP limits apply to all players at once.
+
 ## Roadmap
 
 Persistence for online games (SQLite) · accounts & ELO · replay & PGN import · engine analysis · timers · animations & sounds · play as Black vs AI.

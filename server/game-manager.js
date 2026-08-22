@@ -6,6 +6,14 @@ import { randomInt, randomUUID } from "node:crypto";
 import { Chess } from "../client/js/vendor/chess.js";
 
 export const MAX_ACTIVE_GAMES = Number(process.env.MAX_ACTIVE_GAMES) || 20;
+// Per-IP cap on live (waiting or active) games a single client may own, so
+// one person cannot open many connections and exhaust the global cap.
+export const MAX_GAMES_PER_IP = Number(process.env.MAX_GAMES_PER_IP) || 3;
+
+// PIN brute-force throttle: after this many failed joins from one IP within
+// the window, further joins are refused until the window elapses.
+const JOIN_FAILURE_LIMIT = Number(process.env.JOIN_FAILURE_LIMIT) || 10;
+const JOIN_FAILURE_WINDOW_MS = 60 * 1000;
 
 const WAITING_TTL_MS = 30 * 60 * 1000; // waiting game with no opponent
 const FINISHED_TTL_MS = 10 * 60 * 1000; // finished game kept for late clients
@@ -17,6 +25,8 @@ export class GameManager {
     this.byPin = new Map();
     /** @type {Map<string, {game: Game, color: string}>} player token -> seat */
     this.byToken = new Map();
+    /** @type {Map<string, {count: number, first: number}>} ip -> recent join failures */
+    this.joinFailures = new Map();
     this.sweeper = setInterval(() => this.sweep(), 60 * 1000);
     this.sweeper.unref?.();
   }
@@ -25,26 +35,64 @@ export class GameManager {
     return this.byPin.size;
   }
 
-  createGame() {
+  /** Live games (not finished) owned by an IP. */
+  gamesOwnedBy(ip) {
+    let n = 0;
+    for (const game of this.byPin.values()) {
+      if (game.ownerIp === ip && game.status !== "finished") n += 1;
+    }
+    return n;
+  }
+
+  createGame(ownerIp) {
     if (this.byPin.size >= MAX_ACTIVE_GAMES) {
       throw new GameError("server_full", "Too many games in progress, try again later");
+    }
+    if (ownerIp && this.gamesOwnedBy(ownerIp) >= MAX_GAMES_PER_IP) {
+      throw new GameError("too_many_games", "You already have too many open games; finish or leave one first");
     }
     let pin;
     do {
       pin = String(randomInt(0, 1000000)).padStart(6, "0");
     } while (this.byPin.has(pin));
 
-    const game = new Game(pin);
+    const game = new Game(pin, ownerIp);
     this.byPin.set(pin, game);
     this.byToken.set(game.players.w.token, { game, color: "w" });
     return game;
   }
 
-  joinGame(pin) {
+  /** True while an IP is locked out for too many failed join attempts. */
+  isJoinBlocked(ip, now = Date.now()) {
+    const rec = this.joinFailures.get(ip);
+    if (!rec) return false;
+    if (now - rec.first > JOIN_FAILURE_WINDOW_MS) {
+      this.joinFailures.delete(ip);
+      return false;
+    }
+    return rec.count >= JOIN_FAILURE_LIMIT;
+  }
+
+  recordJoinFailure(ip, now = Date.now()) {
+    const rec = this.joinFailures.get(ip);
+    if (!rec || now - rec.first > JOIN_FAILURE_WINDOW_MS) {
+      this.joinFailures.set(ip, { count: 1, first: now });
+    } else {
+      rec.count += 1;
+    }
+  }
+
+  joinGame(pin, joinerIp) {
+    if (joinerIp && this.isJoinBlocked(joinerIp)) {
+      throw new GameError("too_many_attempts", "Too many failed attempts; wait a minute and try again");
+    }
     const game = this.byPin.get(String(pin));
-    if (!game) throw new GameError("not_found", "No game with that PIN");
-    if (game.players.b) throw new GameError("full", "That game already has two players");
-    if (game.status !== "waiting") throw new GameError("not_joinable", "That game cannot be joined");
+    if (!game || game.players.b || game.status !== "waiting") {
+      // One opaque error for every miss so probing can't distinguish a wrong
+      // PIN from a full or in-progress game.
+      if (joinerIp) this.recordJoinFailure(joinerIp);
+      throw new GameError("not_found", "No joinable game with that PIN");
+    }
 
     game.players.b = { token: randomUUID(), socket: null };
     game.status = "active";
@@ -75,6 +123,9 @@ export class GameManager {
         (game.status === "active" && age > ABANDON_MS && !game.anyoneConnected());
       if (expired) this.removeGame(game);
     }
+    for (const [ip, rec] of this.joinFailures) {
+      if (now - rec.first > JOIN_FAILURE_WINDOW_MS) this.joinFailures.delete(ip);
+    }
   }
 
   stop() {
@@ -83,8 +134,9 @@ export class GameManager {
 }
 
 export class Game {
-  constructor(pin) {
+  constructor(pin, ownerIp = null) {
     this.pin = pin;
+    this.ownerIp = ownerIp; // IP that created the game (per-IP cap accounting)
     this.chess = new Chess();
     this.status = "waiting"; // waiting | active | finished
     this.result = null; // { winner: "w"|"b"|null, reason: string }

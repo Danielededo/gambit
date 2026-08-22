@@ -12,6 +12,40 @@ import { GameManager, GameError, MAX_ACTIVE_GAMES } from "./game-manager.js";
 const PORT = Number(process.env.PORT) || 8080;
 const CLIENT_DIR = resolve(fileURLToPath(new URL("../client/", import.meta.url)));
 
+// Behind a proxy/load balancer (Render, Fly, etc.) the real client IP is in
+// X-Forwarded-For. Only trust it when explicitly enabled, otherwise a client
+// could spoof its IP to bypass the per-IP caps.
+const TRUST_PROXY = process.env.TRUST_PROXY === "1" || process.env.TRUST_PROXY === "true";
+// Comma-separated exact origins allowed to open control WebSockets. When
+// unset, same-origin requests (Origin host === Host) and non-browser clients
+// (no Origin header) are allowed — which is correct for a single-origin deploy.
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || "")
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
+const MAX_CONNECTIONS_PER_IP = Number(process.env.MAX_CONNECTIONS_PER_IP) || 20;
+const MAX_MESSAGE_BYTES = 4 * 1024;
+
+/** Client IP for rate/quota accounting. */
+function clientIp(req) {
+  if (TRUST_PROXY) {
+    const xff = req.headers["x-forwarded-for"];
+    if (xff) return String(xff).split(",")[0].trim();
+  }
+  return req.socket.remoteAddress || "unknown";
+}
+
+/** Whether a browser Origin may open a control WebSocket. */
+function isAllowedOrigin(origin, host) {
+  if (!origin) return true; // non-browser client (no ambient credentials to abuse)
+  if (ALLOWED_ORIGINS.length > 0) return ALLOWED_ORIGINS.includes(origin);
+  try {
+    return new URL(origin).host === host; // same-origin as the page we served
+  } catch {
+    return false;
+  }
+}
+
 const MIME = {
   ".html": "text/html; charset=utf-8",
   ".css": "text/css; charset=utf-8",
@@ -61,9 +95,26 @@ const httpServer = createServer(async (req, res) => {
 // Client -> server: create | join {pin} | resume {token} | move {from,to,promotion} | resign
 // Server -> client: created {pin,token} + state | joined {token} + state | state | error {code,message}
 
-const wss = new WebSocketServer({ server: httpServer, path: "/ws" });
+const wss = new WebSocketServer({
+  server: httpServer,
+  path: "/ws",
+  maxPayload: MAX_MESSAGE_BYTES,
+  verifyClient: ({ origin, req }) => isAllowedOrigin(origin, req.headers.host),
+});
 
-wss.on("connection", (socket) => {
+// Live WebSocket connections per IP, to bound how many sockets one client
+// can hold open at once.
+const connectionsPerIp = new Map();
+
+wss.on("connection", (socket, request) => {
+  const ip = clientIp(request);
+  const openForIp = connectionsPerIp.get(ip) || 0;
+  if (openForIp >= MAX_CONNECTIONS_PER_IP) {
+    socket.close(4429, "Too many connections");
+    return;
+  }
+  connectionsPerIp.set(ip, openForIp + 1);
+
   // The seat this socket occupies once created/joined/resumed.
   let seat = null; // { game, color }
 
@@ -101,7 +152,7 @@ wss.on("connection", (socket) => {
       switch (msg.type) {
         case "create": {
           if (seat) throw new GameError("already_seated", "This connection is already in a game");
-          const game = manager.createGame();
+          const game = manager.createGame(ip);
           attach(game, "w");
           send({ type: "created", pin: game.pin, token: game.players.w.token });
           send(game.stateFor("w"));
@@ -109,7 +160,7 @@ wss.on("connection", (socket) => {
         }
         case "join": {
           if (seat) throw new GameError("already_seated", "This connection is already in a game");
-          const game = manager.joinGame(msg.pin);
+          const game = manager.joinGame(msg.pin, ip);
           attach(game, "b");
           send({ type: "joined", token: game.players.b.token });
           broadcastState(game);
@@ -149,6 +200,10 @@ wss.on("connection", (socket) => {
   });
 
   socket.on("close", () => {
+    const remaining = (connectionsPerIp.get(ip) || 1) - 1;
+    if (remaining > 0) connectionsPerIp.set(ip, remaining);
+    else connectionsPerIp.delete(ip);
+
     if (!seat) return;
     const { game, color } = seat;
     if (game.players[color].socket === socket) {
