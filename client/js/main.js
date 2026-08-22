@@ -31,6 +31,17 @@ const joinPinInput = document.getElementById("join-pin");
 const joinGameButton = document.getElementById("join-game");
 const pinBanner = document.getElementById("pin-banner");
 const pinValue = document.getElementById("pin-value");
+const offerBanner = document.getElementById("offer-banner");
+const offerText = document.getElementById("offer-text");
+const offerAccept = document.getElementById("offer-accept");
+const offerDecline = document.getElementById("offer-decline");
+const onlineActions = document.getElementById("online-actions");
+const drawButton = document.getElementById("draw-button");
+const rematchButton = document.getElementById("rematch-button");
+const chatPanel = document.getElementById("chat-panel");
+const chatMessages = document.getElementById("chat-messages");
+const chatForm = document.getElementById("chat-form");
+const chatInput = document.getElementById("chat-input");
 
 // Invalidates in-flight AI searches when the game is reset or the mode changes.
 let aiGeneration = 0;
@@ -123,7 +134,8 @@ function startOnline() {
     onState: (state) => {
       const firstState = !onlineGame.state;
       onlineGame.applyState(state);
-      if (firstState || board.game !== onlineGame) {
+      // Orientation can change mid-session: a rematch swaps colors.
+      if (firstState || board.game !== onlineGame || board.orientation !== state.yourColor) {
         board.setGame(onlineGame, state.yourColor);
       } else {
         board.render();
@@ -132,8 +144,15 @@ function startOnline() {
       updateSidebar();
 
       // Sounds for events we didn't cause locally.
-      if (!firstState && prevStatus === "waiting" && state.status === "active") {
-        sound.play("notify"); // opponent joined
+      if (
+        !firstState &&
+        state.status === "active" &&
+        (prevStatus === "waiting" || prevStatus === "finished")
+      ) {
+        sound.play("notify"); // opponent joined, or a rematch started
+      }
+      if (state.history.length < soundedMoves) {
+        soundedMoves = state.history.length; // fresh board after a rematch
       }
       if (state.history.length > soundedMoves) {
         // Opponent's move (own moves are sounded optimistically on click).
@@ -144,13 +163,23 @@ function startOnline() {
         });
         soundedMoves = state.history.length;
       } else if (!firstState && prevStatus === "active" && state.status === "finished") {
-        sound.play("end"); // resignation/abandonment (no move attached)
+        sound.play("end"); // resignation/agreement (no move attached)
       }
       prevStatus = state.status;
-
-      if (state.status === "finished") OnlineSession.saveToken(null);
+    },
+    onChat: (from, text) => {
+      appendChat("them", text);
+      sound.play("notify");
+      bumpUnread();
     },
     onError: (code, message) => {
+      if (code.startsWith("chat_")) {
+        appendChat("system", message);
+        return;
+      }
+      if (code === "no_offer") {
+        return; // stale accept/decline (offer was withdrawn); state will follow
+      }
       if (!onlineGame.state || code === "not_found") {
         // Wrong PIN, full game, expired token: back to the create/join panel.
         if (code === "not_found") OnlineSession.saveToken(null);
@@ -175,7 +204,12 @@ function startOnline() {
         updateSidebar("Online server unreachable — online play needs the Node server (see README)");
       }
     },
-    onSeated: () => updateOnlineUi(),
+    onSeated: (token, extra) => {
+      // A new game identity (create/join) starts a fresh chat; a resume keeps
+      // the panel but past messages are gone with the old page anyway.
+      if (extra.type === "created" || extra.type === "joined") clearChat();
+      updateOnlineUi();
+    },
   });
   onlineGame = new OnlineGame(session);
 
@@ -200,16 +234,117 @@ function leaveOnline() {
   onlineGame = null;
   pinBanner.hidden = true;
   onlinePanel.hidden = true;
+  onlineActions.hidden = true;
+  offerBanner.hidden = true;
+  chatPanel.hidden = true;
+  clearChat();
 }
 
 function updateOnlineUi() {
   const seated = Boolean(onlineGame && onlineGame.state);
+  const state = seated ? onlineGame.state : null;
   onlinePanel.hidden = seated;
-  const waiting = seated && onlineGame.state.status === "waiting";
+  const waiting = seated && state.status === "waiting";
   pinBanner.hidden = !waiting;
-  if (waiting) pinValue.textContent = onlineGame.state.pin;
+  if (waiting) pinValue.textContent = state.pin;
   resetButton.textContent = seated ? "Leave game" : "New game";
+
+  // Chat is available as soon as there is an opponent (and stays open after
+  // the game ends, for the customary "gg").
+  chatPanel.hidden = !seated || state.status === "waiting";
+
+  // Draw (during the game) and rematch (after it) actions.
+  const myColor = seated ? state.yourColor : null;
+  drawButton.hidden = !seated || state.status !== "active";
+  drawButton.disabled = seated && state.drawOffer === myColor;
+  drawButton.textContent = seated && state.drawOffer === myColor ? "Draw offered…" : "Offer draw";
+  rematchButton.hidden = !seated || state.status !== "finished";
+  rematchButton.disabled = seated && state.rematchOffer === myColor;
+  rematchButton.textContent =
+    seated && state.rematchOffer === myColor ? "Rematch offered…" : "Rematch";
+  onlineActions.hidden = drawButton.hidden && rematchButton.hidden;
+
+  // Banner for the opponent's pending offer.
+  const opponentOffer =
+    seated && state.drawOffer && state.drawOffer !== myColor
+      ? "draw"
+      : seated && state.rematchOffer && state.rematchOffer !== myColor
+        ? "rematch"
+        : null;
+  pendingOfferKind = opponentOffer;
+  offerBanner.hidden = !opponentOffer;
+  if (opponentOffer) {
+    offerText.textContent =
+      opponentOffer === "draw" ? "Your opponent offers a draw" : "Your opponent wants a rematch";
+  }
 }
+
+// Which opponent offer the banner currently shows ("draw" | "rematch" | null).
+let pendingOfferKind = null;
+
+offerAccept.addEventListener("click", () => {
+  if (!onlineGame) return;
+  if (pendingOfferKind === "draw") onlineGame.acceptDraw();
+  if (pendingOfferKind === "rematch") onlineGame.acceptRematch();
+});
+
+offerDecline.addEventListener("click", () => {
+  if (!onlineGame) return;
+  if (pendingOfferKind === "draw") onlineGame.declineDraw();
+  if (pendingOfferKind === "rematch") onlineGame.declineRematch();
+});
+
+drawButton.addEventListener("click", () => {
+  if (onlineGame) onlineGame.offerDraw();
+});
+
+rematchButton.addEventListener("click", () => {
+  if (onlineGame) onlineGame.offerRematch();
+});
+
+// --- Chat ---
+
+const CHAT_MAX_MESSAGES = 200;
+let unreadChats = 0;
+
+function appendChat(who, text) {
+  const el = document.createElement("div");
+  el.className = `chat-msg ${who}`; // "you" | "them" | "system"
+  el.textContent = who === "system" ? text : `${who === "you" ? "You" : "Opponent"}: ${text}`;
+  chatMessages.appendChild(el);
+  while (chatMessages.childElementCount > CHAT_MAX_MESSAGES) {
+    chatMessages.firstElementChild.remove();
+  }
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function clearChat() {
+  chatMessages.innerHTML = "";
+  unreadChats = 0;
+  document.title = "Gambit — Chess Game";
+}
+
+function bumpUnread() {
+  if (!document.hidden) return;
+  unreadChats += 1;
+  document.title = `(${unreadChats}) Gambit — Chess Game`;
+}
+
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) {
+    unreadChats = 0;
+    document.title = "Gambit — Chess Game";
+  }
+});
+
+chatForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const text = chatInput.value.trim();
+  if (!text || !onlineGame) return;
+  onlineGame.sendChat(text);
+  appendChat("you", text);
+  chatInput.value = "";
+});
 
 createGameButton.addEventListener("click", () => {
   if (session) session.send({ type: "create" });

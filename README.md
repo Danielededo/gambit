@@ -16,7 +16,8 @@ Chess in the browser: play against Stockfish, a friend on the same device, or **
 - **Difficulty 1-8** — Stockfish 18 running locally in your browser, from beginner to full strength
 - **Full rules** — castling, en passant, promotion (with piece picker), check/checkmate/stalemate/draws, powered by [chess.js](https://github.com/jhlywa/chess.js)
 - **Fair online play** — the server validates every move; reconnect and resume after a page reload
-- **Helpful board** — legal-move highlighting, last-move marker, move history in algebraic notation
+- **Play together** — in-game chat (with sound and tab-title notification), draw offers, and one-click rematch with colors swapped
+- **Helpful board** — legal-move highlighting, last-move marker, move history in algebraic notation, move sounds (with a mute toggle)
 - **Your look** — 4 themes × 4 piece sets, remembered across visits
 
 | Light · Standard | Dark · Medieval | Blue · Minimal | Sepia · Unicode |

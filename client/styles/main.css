@@ -280,6 +280,96 @@ body {
   margin-left: 0.4rem;
 }
 
+/* Draw / rematch offers */
+
+.btn-small {
+  padding: 0.35rem 0.7rem;
+  font-size: 0.85rem;
+}
+
+.btn-secondary {
+  background: var(--panel-bg);
+  color: var(--text-color);
+}
+
+.online-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+
+.offer-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.6rem;
+  padding: 0.5rem 0.75rem;
+  border: 2px dashed var(--accent-color);
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.offer-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+/* Chat */
+
+.chat-panel {
+  margin-top: 0.75rem;
+}
+
+.chat-messages {
+  max-height: 180px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-color);
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.chat-messages:empty::before {
+  content: "Say hi to your opponent…";
+  color: var(--muted-text);
+}
+
+.chat-msg.you {
+  color: var(--text-color);
+}
+
+.chat-msg.them {
+  color: var(--accent-color);
+}
+
+.chat-msg.system {
+  color: var(--muted-text);
+  font-style: italic;
+}
+
+.chat-form {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+
+.chat-form input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-color);
+  color: var(--text-color);
+}
+
 /* Sidebar */
 
 .sidebar {
