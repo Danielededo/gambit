@@ -152,8 +152,11 @@ function leaveOnline() {
       onlineGame.resign();
     }
     session.close();
+    // Only drop the reconnect token when we actually left a game. With no
+    // session (e.g. the initial local-mode setup before the server probe),
+    // clearing it would wipe a still-valid token and break auto-resume.
+    OnlineSession.saveToken(null);
   }
-  OnlineSession.saveToken(null);
   session = null;
   onlineGame = null;
   pinBanner.hidden = true;
@@ -261,13 +264,45 @@ try {
 } catch {
   // ignore
 }
-if (["ai", "human", "online"].includes(savedMode)) modeSelect.value = savedMode;
 if (savedDifficulty && Number(savedDifficulty) >= 1 && Number(savedDifficulty) <= 8) {
   difficultyInput.value = savedDifficulty;
 }
 difficultyValue.textContent = difficultyInput.value;
 ai.setLevel(difficultyInput.value);
 
+// Online mode requires the Node server. On a static-only deployment (GitHub
+// Pages) there is none, so the option is hidden until a /healthz probe
+// confirms a server is present — one codebase, two "releases".
+const onlineOption = modeSelect.querySelector('option[value="online"]');
+onlineOption.remove();
+if (["ai", "human"].includes(savedMode)) modeSelect.value = savedMode;
+
 board.render();
 updateSidebar();
 applyMode();
+
+async function serverAvailable() {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 2500);
+    const res = await fetch(new URL("healthz", document.baseURI), {
+      signal: controller.signal,
+      cache: "no-store",
+    });
+    clearTimeout(timer);
+    if (!res.ok) return false;
+    const data = await res.json();
+    return data && data.ok === true;
+  } catch {
+    return false;
+  }
+}
+
+serverAvailable().then((available) => {
+  if (!available) return; // static release: online stays hidden
+  modeSelect.appendChild(onlineOption);
+  if (savedMode === "online") {
+    modeSelect.value = "online";
+    applyMode();
+  }
+});

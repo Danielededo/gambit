@@ -38,7 +38,7 @@ Static-only alternative (local modes, no online): `python -m http.server -d clie
 - `client/` — static frontend (vanilla JS, no build step). Runs anywhere; Stockfish plays in the visitor's browser.
 - `server/` — Node.js WebSocket server for online games: it serves `client/` and is the authority on the rules (every move re-validated server-side). In-memory for now, `MAX_ACTIVE_GAMES` caps parallel games (default 20).
 
-Full deployment needs a Node host (`npm start`, honors `PORT`). The GitHub Pages workflow ([`deploy.yml`](.github/workflows/deploy.yml)) publishes the static client only — local modes work there, online play does not.
+Full deployment needs a Node host (`npm start`, honors `PORT`). The GitHub Pages workflow ([`deploy.yml`](.github/workflows/deploy.yml)) publishes the static client only — local modes work there, online play does not. The client detects this at runtime (a `/healthz` probe) and **hides the Online option when no server is present**, so the same codebase ships as two releases: a static single-player build (Pages) and the full app (a Node host).
 
 ### Deploy the server on Render (free)
 
