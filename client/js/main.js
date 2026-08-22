@@ -7,6 +7,7 @@ import { AI } from "./ai.js";
 import { OnlineSession, OnlineGame } from "./online.js";
 import { THEMES, getSavedTheme, applyTheme } from "./theme.js";
 import { PIECE_SETS, loadSavedPieceSet, setPieceSet } from "./pieces.js";
+import { sound } from "./sound.js";
 
 const MODE_STORAGE_KEY = "gambit-mode";
 const DIFFICULTY_STORAGE_KEY = "gambit-difficulty";
@@ -38,7 +39,18 @@ let aiGeneration = 0;
 let session = null;
 let onlineGame = null;
 
-const board = new Board(document.getElementById("board"), localGame, () => {
+// How many half-moves have already been given a sound (avoids double-playing
+// an online move: once optimistically, once on the server echo).
+let soundedMoves = 0;
+
+const board = new Board(document.getElementById("board"), localGame, (move) => {
+  const game = currentGame();
+  sound.playForMove({
+    captured: Boolean(move && move.captured),
+    inCheck: game.inCheck(),
+    gameOver: game.isGameOver(),
+  });
+  soundedMoves = game.history().length;
   updateSidebar();
   if (modeSelect.value === "ai") maybeTriggerAiMove();
 });
@@ -72,7 +84,13 @@ async function maybeTriggerAiMove() {
   try {
     const { from, to, promotion } = await ai.bestMove(localGame.fen());
     if (generation !== aiGeneration) return; // game was reset meanwhile
-    board.applyMove(from, to, promotion);
+    const move = board.applyMove(from, to, promotion);
+    sound.playForMove({
+      captured: Boolean(move && move.captured),
+      inCheck: localGame.inCheck(),
+      gameOver: localGame.isGameOver(),
+    });
+    soundedMoves = localGame.history().length;
   } catch (error) {
     if (generation !== aiGeneration) return;
     console.error(error);
@@ -87,6 +105,7 @@ async function maybeTriggerAiMove() {
 function resetLocalGame() {
   aiGeneration += 1;
   ai.stop();
+  soundedMoves = 0;
   localGame.reset();
   board.setLocked(false);
   board.setGame(localGame, "w");
@@ -98,6 +117,8 @@ function resetLocalGame() {
 
 function startOnline() {
   onlineGame = null;
+  soundedMoves = 0;
+  let prevStatus = null;
   session = new OnlineSession({
     onState: (state) => {
       const firstState = !onlineGame.state;
@@ -109,6 +130,24 @@ function startOnline() {
       }
       updateOnlineUi();
       updateSidebar();
+
+      // Sounds for events we didn't cause locally.
+      if (!firstState && prevStatus === "waiting" && state.status === "active") {
+        sound.play("notify"); // opponent joined
+      }
+      if (state.history.length > soundedMoves) {
+        // Opponent's move (own moves are sounded optimistically on click).
+        sound.playForMove({
+          captured: /x/.test(state.history[state.history.length - 1] || ""),
+          inCheck: state.inCheck,
+          gameOver: state.status === "finished",
+        });
+        soundedMoves = state.history.length;
+      } else if (!firstState && prevStatus === "active" && state.status === "finished") {
+        sound.play("end"); // resignation/abandonment (no move attached)
+      }
+      prevStatus = state.status;
+
       if (state.status === "finished") OnlineSession.saveToken(null);
     },
     onError: (code, message) => {
@@ -231,6 +270,18 @@ difficultyInput.addEventListener("input", () => {
 });
 
 themeSelect.addEventListener("change", () => applyTheme(themeSelect.value));
+
+const soundToggle = document.getElementById("sound-toggle");
+function renderSoundToggle() {
+  soundToggle.textContent = sound.isEnabled() ? "🔊" : "🔇";
+  soundToggle.setAttribute("aria-pressed", String(sound.isEnabled()));
+}
+soundToggle.addEventListener("click", () => {
+  sound.setEnabled(!sound.isEnabled());
+  renderSoundToggle();
+  if (sound.isEnabled()) sound.play("move"); // audible confirmation
+});
+renderSoundToggle();
 
 pieceSetSelect.addEventListener("change", () => {
   setPieceSet(pieceSetSelect.value);

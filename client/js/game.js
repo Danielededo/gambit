@@ -73,4 +73,8 @@ export class Game {
   isGameOver() {
     return this.chess.isGameOver();
   }
+
+  inCheck() {
+    return this.chess.inCheck();
+  }
 }

@@ -172,6 +172,10 @@ export class OnlineGame {
     return !this.state || this.state.status === "finished";
   }
 
+  inCheck() {
+    return this.chess.inCheck();
+  }
+
   fen() {
     return this.chess.fen();
   }
