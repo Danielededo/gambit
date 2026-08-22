@@ -2,6 +2,12 @@
 
 Chess in the browser: play against Stockfish, a friend on the same device, or **online with a 6-digit PIN** — no accounts, no tracking.
 
+**▶ Play online (all modes): https://gambit-gky7.onrender.com** &nbsp;·&nbsp; single-player is also on [GitHub Pages](https://danielededo.github.io/gambit/)
+
+[![Live site](https://img.shields.io/website?url=https%3A%2F%2Fgambit-gky7.onrender.com&label=render&up_message=live&down_message=asleep)](https://gambit-gky7.onrender.com)
+
+> The online host is on a free plan that sleeps after ~15 min idle — the first visit then takes ~30s to wake.
+
 ![Gambit — mid-game against the AI](client/assets/screenshots/gameplay.png)
 
 ## Features
