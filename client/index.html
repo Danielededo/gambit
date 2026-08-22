@@ -61,7 +61,13 @@
         </div>
         <p class="online-hint">Create a game and share the PIN, or enter a friend's PIN to join.</p>
       </div>
-      <div id="pin-banner" class="pin-banner" hidden>PIN <strong id="pin-value"></strong></div>
+      <div id="pin-banner" class="pin-banner" hidden>
+        PIN <strong id="pin-value"></strong>
+        <button id="copy-pin" class="copy-pin" type="button" aria-label="Copy PIN" title="Copy PIN">
+          <svg class="icon-copy" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          <svg class="icon-check" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+        </button>
+      </div>
       <div id="game-status" class="game-status" role="status">White to move</div>
       <div id="offer-banner" class="offer-banner" hidden>
         <span id="offer-text"></span>

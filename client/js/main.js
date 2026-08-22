@@ -13,7 +13,7 @@ const MODE_STORAGE_KEY = "gambit-mode";
 const DIFFICULTY_STORAGE_KEY = "gambit-difficulty";
 const AI_COLOR = "b"; // the human plays White in Human vs AI mode
 // Shown in the footer; bump on release so a stale cached client is obvious.
-const APP_VERSION = "0.4.0";
+const APP_VERSION = "0.4.1";
 
 const localGame = new Game();
 const ai = new AI();
@@ -33,6 +33,7 @@ const joinPinInput = document.getElementById("join-pin");
 const joinGameButton = document.getElementById("join-game");
 const pinBanner = document.getElementById("pin-banner");
 const pinValue = document.getElementById("pin-value");
+const copyPinButton = document.getElementById("copy-pin");
 const offerBanner = document.getElementById("offer-banner");
 const offerText = document.getElementById("offer-text");
 const offerAccept = document.getElementById("offer-accept");
@@ -381,6 +382,36 @@ chatForm.addEventListener("submit", (event) => {
 
 createGameButton.addEventListener("click", () => {
   if (session) session.send({ type: "create" });
+});
+
+let copyPinTimer = null;
+copyPinButton.addEventListener("click", async () => {
+  const pin = pinValue.textContent.trim();
+  if (!pin) return;
+  let copied = false;
+  try {
+    await navigator.clipboard.writeText(pin);
+    copied = true;
+  } catch {
+    // Fallback for contexts without the async clipboard API.
+    try {
+      const scratch = document.createElement("textarea");
+      scratch.value = pin;
+      scratch.style.position = "fixed";
+      scratch.style.opacity = "0";
+      document.body.appendChild(scratch);
+      scratch.select();
+      copied = document.execCommand("copy");
+      scratch.remove();
+    } catch {
+      copied = false;
+    }
+  }
+  if (copied) {
+    copyPinButton.classList.add("copied");
+    clearTimeout(copyPinTimer);
+    copyPinTimer = setTimeout(() => copyPinButton.classList.remove("copied"), 1500);
+  }
 });
 
 joinGameButton.addEventListener("click", () => {

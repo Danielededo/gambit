@@ -280,6 +280,40 @@ body {
   margin-left: 0.4rem;
 }
 
+.copy-pin {
+  vertical-align: middle;
+  margin-left: 0.5rem;
+  padding: 0.35rem 0.45rem;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--panel-bg);
+  color: var(--text-color);
+  cursor: pointer;
+  line-height: 0;
+}
+
+.copy-pin:hover {
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+}
+
+.copy-pin .icon-check {
+  display: none;
+}
+
+.copy-pin.copied {
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+}
+
+.copy-pin.copied .icon-copy {
+  display: none;
+}
+
+.copy-pin.copied .icon-check {
+  display: inline;
+}
+
 /* Draw / rematch offers */
 
 .btn-small {
