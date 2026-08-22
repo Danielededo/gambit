@@ -10,6 +10,7 @@ services:
     buildCommand: npm install
     startCommand: npm start
     healthCheckPath: /healthz
+    autoDeploy: true # redeploy on every push to the default branch
     envVars:
       # Behind Render's proxy: read the real client IP from X-Forwarded-For so
       # the per-IP limits don't treat every player as the same client.

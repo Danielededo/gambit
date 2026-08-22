@@ -74,8 +74,23 @@
         <button id="draw-button" class="btn btn-small btn-secondary" type="button">Offer draw</button>
         <button id="rematch-button" class="btn btn-small" type="button" hidden>Rematch</button>
       </div>
-      <h2 class="sidebar-heading">Moves</h2>
-      <ol id="move-history" class="move-history"></ol>
+      <h2 class="sidebar-heading">Captured</h2>
+      <div id="captured-panel" class="captured-panel">
+        <div class="captured-row">
+          <span class="captured-label">White</span>
+          <span id="captured-by-w" class="captured-pieces"></span>
+          <span id="material-w" class="material-lead"></span>
+        </div>
+        <div class="captured-row">
+          <span class="captured-label">Black</span>
+          <span id="captured-by-b" class="captured-pieces"></span>
+          <span id="material-b" class="material-lead"></span>
+        </div>
+      </div>
+      <details class="moves-details">
+        <summary class="sidebar-heading">Moves</summary>
+        <ol id="move-history" class="move-history"></ol>
+      </details>
       <section id="chat-panel" class="chat-panel" hidden aria-label="Game chat">
         <h2 class="sidebar-heading">Chat</h2>
         <div id="chat-messages" class="chat-messages" aria-live="polite"></div>

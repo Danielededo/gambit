@@ -39,33 +39,53 @@ function tone(ac, { freq, type = "sine", at = 0, duration = 0.08, gain = 0.12 })
 
 const EFFECTS = {
   // Dry wooden tap for a quiet move.
-  move: (ac) => tone(ac, { freq: 520, type: "triangle", duration: 0.06, gain: 0.15 }),
+  move: (ac) => tone(ac, { freq: 520, type: "triangle", duration: 0.07, gain: 0.35 }),
   // Lower, slightly longer thud for a capture.
   capture: (ac) => {
-    tone(ac, { freq: 300, type: "triangle", duration: 0.09, gain: 0.2 });
-    tone(ac, { freq: 180, type: "sine", at: 0.01, duration: 0.12, gain: 0.12 });
+    tone(ac, { freq: 300, type: "triangle", duration: 0.1, gain: 0.45 });
+    tone(ac, { freq: 180, type: "sine", at: 0.01, duration: 0.14, gain: 0.3 });
   },
   // Rising two-note alert for check.
   check: (ac) => {
-    tone(ac, { freq: 660, duration: 0.08, gain: 0.12 });
-    tone(ac, { freq: 880, at: 0.09, duration: 0.12, gain: 0.12 });
+    tone(ac, { freq: 660, duration: 0.09, gain: 0.3 });
+    tone(ac, { freq: 880, at: 0.1, duration: 0.14, gain: 0.3 });
   },
   // Small closing chord for checkmate/draw/resignation.
   end: (ac) => {
-    tone(ac, { freq: 523, at: 0, duration: 0.28, gain: 0.1 }); // C5
-    tone(ac, { freq: 659, at: 0.02, duration: 0.28, gain: 0.08 }); // E5
-    tone(ac, { freq: 784, at: 0.04, duration: 0.32, gain: 0.08 }); // G5
+    tone(ac, { freq: 523, at: 0, duration: 0.3, gain: 0.25 }); // C5
+    tone(ac, { freq: 659, at: 0.02, duration: 0.3, gain: 0.2 }); // E5
+    tone(ac, { freq: 784, at: 0.04, duration: 0.35, gain: 0.2 }); // G5
   },
   // Distinct ding for events that need attention (opponent joined, chat…).
   notify: (ac) => {
-    tone(ac, { freq: 987, duration: 0.1, gain: 0.1 }); // B5
-    tone(ac, { freq: 1318, at: 0.08, duration: 0.18, gain: 0.1 }); // E6
+    tone(ac, { freq: 987, duration: 0.12, gain: 0.25 }); // B5
+    tone(ac, { freq: 1318, at: 0.09, duration: 0.2, gain: 0.25 }); // E6
   },
 };
 
 export const sound = {
   isEnabled() {
     return enabled;
+  },
+
+  /**
+   * Prime the audio pipeline from inside a user gesture. iOS/Safari keeps
+   * WebAudio muted until a (near-)silent buffer is played during a real tap;
+   * without this, sounds triggered by network events (opponent moves, chat)
+   * would stay silent until the user happens to tap something that plays.
+   */
+  unlock() {
+    try {
+      const ac = context();
+      if (!ac) return;
+      const buffer = ac.createBuffer(1, 1, 22050);
+      const source = ac.createBufferSource();
+      source.buffer = buffer;
+      source.connect(ac.destination);
+      source.start(0);
+    } catch {
+      // best effort
+    }
   },
 
   setEnabled(value) {

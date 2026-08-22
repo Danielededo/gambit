@@ -6,7 +6,7 @@ import { Board } from "./board.js";
 import { AI } from "./ai.js";
 import { OnlineSession, OnlineGame } from "./online.js";
 import { THEMES, getSavedTheme, applyTheme } from "./theme.js";
-import { PIECE_SETS, loadSavedPieceSet, setPieceSet } from "./pieces.js";
+import { PIECE_SETS, loadSavedPieceSet, setPieceSet, createPieceElement } from "./pieces.js";
 import { sound } from "./sound.js";
 
 const MODE_STORAGE_KEY = "gambit-mode";
@@ -42,6 +42,10 @@ const chatPanel = document.getElementById("chat-panel");
 const chatMessages = document.getElementById("chat-messages");
 const chatForm = document.getElementById("chat-form");
 const chatInput = document.getElementById("chat-input");
+const capturedByW = document.getElementById("captured-by-w");
+const capturedByB = document.getElementById("captured-by-b");
+const materialW = document.getElementById("material-w");
+const materialB = document.getElementById("material-b");
 
 // Invalidates in-flight AI searches when the game is reset or the mode changes.
 let aiGeneration = 0;
@@ -70,6 +74,32 @@ function currentGame() {
   return modeSelect.value === "online" && onlineGame ? onlineGame : localGame;
 }
 
+const PIECE_VALUES = { p: 1, n: 3, b: 3, r: 5, q: 9 };
+const CAPTURE_ORDER = ["q", "r", "b", "n", "p"];
+
+function renderCapturedRow(container, types, victimColor) {
+  container.innerHTML = "";
+  const sorted = [...types].sort(
+    (a, b) => CAPTURE_ORDER.indexOf(a) - CAPTURE_ORDER.indexOf(b)
+  );
+  for (const type of sorted) {
+    const el = createPieceElement({ type, color: victimColor });
+    el.classList.add("captured-piece");
+    container.appendChild(el);
+  }
+}
+
+function updateCaptured() {
+  const captures = currentGame().captured();
+  // Pieces captured BY White are Black's pieces, and vice versa.
+  renderCapturedRow(capturedByW, captures.w, "b");
+  renderCapturedRow(capturedByB, captures.b, "w");
+  const sum = (list) => list.reduce((total, type) => total + (PIECE_VALUES[type] || 0), 0);
+  const lead = sum(captures.w) - sum(captures.b);
+  materialW.textContent = lead > 0 ? `+${lead}` : "";
+  materialB.textContent = lead < 0 ? `+${-lead}` : "";
+}
+
 function updateSidebar(overrideStatus) {
   statusEl.textContent = overrideStatus || currentGame().status();
 
@@ -81,6 +111,7 @@ function updateSidebar(overrideStatus) {
     historyEl.appendChild(li);
   }
   historyEl.scrollTop = historyEl.scrollHeight;
+  updateCaptured();
 }
 
 // --- Local play (vs AI or hot-seat) ---
@@ -421,7 +452,11 @@ renderSoundToggle();
 pieceSetSelect.addEventListener("change", () => {
   setPieceSet(pieceSetSelect.value);
   board.render();
+  updateCaptured();
 });
+
+// iOS/Safari keeps WebAudio silent until it is primed inside a real tap.
+document.addEventListener("pointerdown", () => sound.unlock(), { once: true, capture: true });
 
 // --- Startup ---
 

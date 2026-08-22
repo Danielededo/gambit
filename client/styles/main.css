@@ -395,10 +395,70 @@ body {
   background: var(--status-bg);
 }
 
+/* Captured pieces tray */
+
+.captured-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.captured-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 1.9rem;
+}
+
+.captured-label {
+  flex: 0 0 3.2rem;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted-text);
+}
+
+.captured-pieces {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.1rem;
+  flex: 1;
+}
+
+.captured-pieces:empty::before {
+  content: "—";
+  color: var(--muted-text);
+}
+
+.piece.captured-piece {
+  width: 1.6rem;
+  height: 1.6rem;
+  font-size: 1.3rem;
+  pointer-events: auto;
+}
+
+.material-lead {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-color);
+}
+
+/* Collapsible move list */
+
+.moves-details {
+  margin-top: 0.75rem;
+}
+
+.moves-details summary {
+  cursor: pointer;
+  list-style: revert;
+}
+
 .move-history {
-  margin: 0;
+  margin: 0.4rem 0 0;
   padding-left: 2rem;
-  max-height: 420px;
+  max-height: 220px;
   overflow-y: auto;
   font-variant-numeric: tabular-nums;
 }

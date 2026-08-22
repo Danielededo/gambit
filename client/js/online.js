@@ -115,7 +115,16 @@ export class OnlineGame {
     this.state = state;
     this.myColor = state.yourColor;
     this.selectableColor = state.yourColor;
-    this.chess = new Chess(state.fen);
+    // Replay the SAN history so the mirror carries the full game (needed for
+    // the captured-pieces tray); fall back to the bare FEN if replay fails.
+    try {
+      const replayed = new Chess();
+      for (const san of state.history) replayed.move(san);
+      if (replayed.fen() !== state.fen) throw new Error("replay mismatch");
+      this.chess = replayed;
+    } catch {
+      this.chess = new Chess(state.fen);
+    }
     this.san = [...state.history];
     this.last = state.lastMove;
   }
@@ -205,6 +214,15 @@ export class OnlineGame {
 
   inCheck() {
     return this.chess.inCheck();
+  }
+
+  /** Piece types captured by each color, in capture order. */
+  captured() {
+    const captures = { w: [], b: [] };
+    for (const move of this.chess.history({ verbose: true })) {
+      if (move.captured) captures[move.color].push(move.captured);
+    }
+    return captures;
   }
 
   fen() {

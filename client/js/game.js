@@ -77,4 +77,13 @@ export class Game {
   inCheck() {
     return this.chess.inCheck();
   }
+
+  /** Piece types captured by each color, in capture order. */
+  captured() {
+    const captures = { w: [], b: [] };
+    for (const move of this.chess.history({ verbose: true })) {
+      if (move.captured) captures[move.color].push(move.captured);
+    }
+    return captures;
+  }
 }
