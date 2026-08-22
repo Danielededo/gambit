@@ -52,7 +52,10 @@ All optional, set via environment variables:
 | `MAX_CONNECTIONS_PER_IP` | `20` | Concurrent WebSocket connections per IP |
 | `JOIN_FAILURE_LIMIT` | `10` | Failed PIN joins per IP per minute before a short lockout (anti brute-force) |
 | `ALLOWED_ORIGINS` | same-origin | Comma-separated origins allowed to open control sockets |
+| `HEARTBEAT_MS` | `30000` | WebSocket ping interval; keeps connections alive through proxies and detects dead sockets |
 | `TRUST_PROXY` | `0` | Set to `1` when behind a proxy/load balancer so the client IP is read from `X-Forwarded-For` |
+
+See [`.env.example`](.env.example) for a copy-ready template. The server shuts down cleanly on `SIGTERM`/`SIGINT` (redeploys, Ctrl-C).
 
 > **Behind a proxy (Render, Fly, Railway, …): set `TRUST_PROXY=1`.** Otherwise every request appears to come from the proxy's IP and the per-IP limits apply to all players at once.
 

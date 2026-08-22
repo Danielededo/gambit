@@ -115,6 +115,14 @@ wss.on("connection", (socket, request) => {
   }
   connectionsPerIp.set(ip, openForIp + 1);
 
+  // Heartbeat: mark alive on any pong; the interval below terminates sockets
+  // that miss a round, so half-open connections (dropped by a proxy without a
+  // close frame) are detected instead of lingering as "connected".
+  socket.isAlive = true;
+  socket.on("pong", () => {
+    socket.isAlive = true;
+  });
+
   // The seat this socket occupies once created/joined/resumed.
   let seat = null; // { game, color }
 
@@ -214,6 +222,40 @@ wss.on("connection", (socket, request) => {
   });
 });
 
+// Proxies (Render, Fly, Railway, …) drop idle WebSockets after ~60s. Ping
+// periodically and terminate any socket that didn't answer the previous ping.
+const HEARTBEAT_MS = Number(process.env.HEARTBEAT_MS) || 30 * 1000;
+const heartbeat = setInterval(() => {
+  for (const socket of wss.clients) {
+    if (socket.isAlive === false) {
+      socket.terminate();
+      continue;
+    }
+    socket.isAlive = false;
+    socket.ping();
+  }
+}, HEARTBEAT_MS);
+heartbeat.unref?.();
+
 httpServer.listen(PORT, () => {
   console.log(`Gambit listening on http://localhost:${PORT} (max ${MAX_ACTIVE_GAMES} concurrent games)`);
 });
+
+// Clean shutdown on redeploy/stop: stop timers, close sockets and the server.
+let shuttingDown = false;
+function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`Received ${signal}, shutting down…`);
+  clearInterval(heartbeat);
+  manager.stop();
+  // Hard-close sockets: in-memory games don't survive a restart anyway and
+  // clients auto-reconnect, so there's nothing to drain gracefully.
+  for (const socket of wss.clients) socket.terminate();
+  httpServer.close(() => process.exit(0));
+  httpServer.closeAllConnections?.(); // drop lingering keep-alive HTTP conns
+  // Backstop in case a connection lingers.
+  setTimeout(() => process.exit(0), 3000).unref?.();
+}
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));
