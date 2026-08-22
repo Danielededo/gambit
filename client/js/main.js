@@ -13,7 +13,7 @@ const MODE_STORAGE_KEY = "gambit-mode";
 const DIFFICULTY_STORAGE_KEY = "gambit-difficulty";
 const AI_COLOR = "b"; // the human plays White in Human vs AI mode
 // Shown in the footer; bump on release so a stale cached client is obvious.
-const APP_VERSION = "0.5.1";
+const APP_VERSION = "0.6.0";
 
 const localGame = new Game();
 const ai = new AI();
@@ -68,6 +68,32 @@ let invitePin = null;
 // an online move: once optimistically, once on the server echo).
 let soundedMoves = 0;
 
+// --- Center-board toast for the moments worth shouting about ---
+
+const boardToast = document.getElementById("board-toast");
+const boardToastText = document.getElementById("board-toast-text");
+let boardToastTimer = null;
+
+/** Show a transient, non-blocking message centered on the board. */
+function announce(text, kind = "start", duration = 2000) {
+  boardToastText.textContent = text;
+  boardToast.hidden = true;
+  void boardToast.offsetWidth; // restart the CSS animation
+  boardToast.className = `board-toast ${kind}`;
+  boardToast.hidden = false;
+  boardToastText.style.animationDuration = `${duration}ms`;
+  clearTimeout(boardToastTimer);
+  boardToastTimer = setTimeout(() => {
+    boardToast.hidden = true;
+  }, duration);
+}
+
+/** Toast for check / game over right after a move on `game`. */
+function announceMoveEvents(game) {
+  if (game.isGameOver()) announce(game.status(), "end", 3500);
+  else if (game.inCheck()) announce("Check!", "check", 1400);
+}
+
 const board = new Board(document.getElementById("board"), localGame, (move) => {
   const game = currentGame();
   sound.playForMove({
@@ -76,6 +102,7 @@ const board = new Board(document.getElementById("board"), localGame, (move) => {
     gameOver: game.isGameOver(),
   });
   soundedMoves = game.history().length;
+  announceMoveEvents(game);
   updateSidebar();
   if (modeSelect.value === "ai") maybeTriggerAiMove();
 });
@@ -143,6 +170,7 @@ async function maybeTriggerAiMove() {
       gameOver: localGame.isGameOver(),
     });
     soundedMoves = localGame.history().length;
+    announceMoveEvents(localGame);
   } catch (error) {
     if (generation !== aiGeneration) return;
     console.error(error);
@@ -184,13 +212,21 @@ function startOnline() {
       updateOnlineUi();
       updateSidebar();
 
-      // Sounds for events we didn't cause locally.
+      // Sounds and toasts for events we didn't cause locally.
       if (
         !firstState &&
         state.status === "active" &&
         (prevStatus === "waiting" || prevStatus === "finished")
       ) {
-        sound.play("notify"); // opponent joined, or a rematch started
+        sound.play("notify");
+        announce(
+          prevStatus === "waiting" ? "Opponent joined — game on!" : "Rematch — new game!",
+          "start",
+          2200
+        );
+      } else if (firstState && state.status === "active" && state.history.length === 0) {
+        // Joined a fresh game (e.g. via invite link).
+        announce(`Game on — you play ${state.yourColor === "w" ? "White" : "Black"}!`, "start", 2200);
       }
       if (state.history.length < soundedMoves) {
         soundedMoves = state.history.length; // fresh board after a rematch
@@ -203,8 +239,17 @@ function startOnline() {
           gameOver: state.status === "finished",
         });
         soundedMoves = state.history.length;
-      } else if (!firstState && prevStatus === "active" && state.status === "finished") {
-        sound.play("end"); // resignation/agreement (no move attached)
+        announceMoveEvents(onlineGame);
+      } else if (
+        !firstState &&
+        prevStatus === "active" &&
+        state.status === "finished" &&
+        ["resignation", "agreement", "abandonment"].includes(state.result && state.result.reason)
+      ) {
+        // Game ended without a move (a mating move's server echo must not
+        // re-fire: its reason is checkmate/draw and was handled on the move).
+        sound.play("end");
+        announce(onlineGame.status(), "end", 3500);
       }
       prevStatus = state.status;
     },
@@ -484,6 +529,7 @@ resetButton.addEventListener("click", () => {
     updateSidebar("Create a game or join with a PIN");
   } else {
     resetLocalGame();
+    announce("New game", "start", 1500);
   }
 });
 

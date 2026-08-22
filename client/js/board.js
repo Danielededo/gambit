@@ -40,6 +40,21 @@ export class Board {
       ? this.game.legalMovesFrom(this.selectedSquare)
       : [];
 
+    // The side to move's king square, highlighted while in check.
+    let checkSquare = null;
+    if (this.game.inCheck && this.game.inCheck()) {
+      const turn = this.game.turn();
+      outer: for (let r = 0; r < board.length; r++) {
+        for (let f = 0; f < board[r].length; f++) {
+          const piece = board[r][f];
+          if (piece && piece.type === "k" && piece.color === turn) {
+            checkSquare = FILES[f] + (8 - r);
+            break outer;
+          }
+        }
+      }
+    }
+
     // chess.js returns ranks 8 -> 1, which matches top -> bottom rendering
     // with White at the bottom; for Black's point of view both axes flip.
     const rows = board.map((rank, rankIndex) => ({ rank, rankIndex }));
@@ -61,6 +76,7 @@ export class Board {
         if (lastMove && (square === lastMove.from || square === lastMove.to)) {
           el.classList.add("last-move");
         }
+        if (square === checkSquare) el.classList.add("check");
 
         const target = legalTargets.find((move) => move.to === square);
         if (target) {

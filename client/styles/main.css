@@ -112,6 +112,67 @@ body {
 
 .board-panel {
   flex: 0 1 auto;
+  position: relative;
+}
+
+/* Transient center-board announcements (check, game start/end). */
+
+.board-toast {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 20;
+}
+
+.board-toast span {
+  padding: 0.55em 1.1em;
+  border-radius: 12px;
+  font-size: clamp(1.3rem, 4.5vw, 2rem);
+  font-weight: 700;
+  text-align: center;
+  max-width: 85%;
+  background: var(--panel-bg);
+  color: var(--text-color);
+  border: 3px solid var(--accent-color);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+  animation: toast-pop 2000ms ease forwards;
+}
+
+.board-toast.check span {
+  border-color: #dc2626;
+  color: #dc2626;
+}
+
+.board-toast.end span {
+  border-color: var(--accent-color);
+}
+
+.board-toast.start span {
+  border-color: #16a34a;
+}
+
+@keyframes toast-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+  8% {
+    opacity: 1;
+    transform: scale(1.03);
+  }
+  12% {
+    transform: scale(1);
+  }
+  82% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.96);
+  }
 }
 
 .board {
@@ -172,6 +233,14 @@ body {
 
 .square.last-move {
   box-shadow: inset 0 0 0 100vmax var(--highlight-last-move);
+}
+
+/* King under attack: red glow beneath the piece. */
+.square.check::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle, rgba(220, 38, 38, 0.6) 0%, rgba(220, 38, 38, 0.25) 55%, rgba(220, 38, 38, 0) 75%);
 }
 
 .piece {
