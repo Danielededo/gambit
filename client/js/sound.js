@@ -1,129 +1,118 @@
-// Game sounds, synthesized with WebAudio — no audio files to ship or license.
-// The AudioContext is created lazily on the first play, which always happens
-// inside a user gesture (a click on the board), satisfying autoplay policies.
+// Game sounds. Effects are synthesized once into small in-memory WAV blobs
+// and played through plain <audio> elements — standard media playback, which
+// iOS does not mute with the ring/silent switch and which survives Safari's
+// WebAudio quirks. All elements are unlocked with the classic play+pause
+// inside the first user gesture. No audio files shipped, nothing to license.
 
 const STORAGE_KEY = "gambit-sound";
+const SAMPLE_RATE = 22050;
 
-let ctx = null;
 let enabled = true;
-// iOS mutes WebAudio while the ring/silent switch is on silent, but treats
-// <audio> element playback as media (like a video), which keeps playing. So
-// tones are routed through a MediaStream into a hidden <audio> element once
-// unlock() has managed to start it; direct WebAudio output is the fallback.
-let mediaDest = null;
-let mediaEl = null;
-let mediaReady = false;
-
 try {
   enabled = localStorage.getItem(STORAGE_KEY) !== "off";
 } catch {
   // localStorage unavailable: default to on.
 }
 
-function context() {
-  if (!ctx) {
-    const AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC) return null;
-    ctx = new AC();
-    try {
-      mediaDest = ctx.createMediaStreamDestination();
-      mediaEl = document.createElement("audio");
-      mediaEl.srcObject = mediaDest.stream;
-      mediaEl.setAttribute("playsinline", "");
-      mediaEl.volume = 1;
-      mediaEl.style.display = "none";
-      document.body.appendChild(mediaEl);
-    } catch {
-      mediaDest = null; // stream routing unsupported: use direct output
+// --- Synthesis (same recipes as before, rendered offline) ---
+
+// Each effect is a list of decaying notes: {freq, type, at, duration, gain}.
+const RECIPES = {
+  move: [{ freq: 520, type: "triangle", at: 0, duration: 0.07, gain: 0.5 }],
+  capture: [
+    { freq: 300, type: "triangle", at: 0, duration: 0.1, gain: 0.55 },
+    { freq: 180, type: "sine", at: 0.01, duration: 0.14, gain: 0.4 },
+  ],
+  check: [
+    { freq: 660, type: "sine", at: 0, duration: 0.09, gain: 0.4 },
+    { freq: 880, type: "sine", at: 0.1, duration: 0.14, gain: 0.4 },
+  ],
+  end: [
+    { freq: 523, type: "sine", at: 0, duration: 0.3, gain: 0.35 }, // C5
+    { freq: 659, type: "sine", at: 0.02, duration: 0.3, gain: 0.28 }, // E5
+    { freq: 784, type: "sine", at: 0.04, duration: 0.35, gain: 0.28 }, // G5
+  ],
+  notify: [
+    { freq: 987, type: "sine", at: 0, duration: 0.12, gain: 0.35 }, // B5
+    { freq: 1318, type: "sine", at: 0.09, duration: 0.2, gain: 0.35 }, // E6
+  ],
+};
+
+// Exported for tests (pure functions, no DOM/audio dependencies).
+export { RECIPES, renderSamples, encodeWav };
+
+function waveform(type, phase) {
+  const s = Math.sin(2 * Math.PI * phase);
+  return type === "triangle" ? (2 / Math.PI) * Math.asin(s) : s;
+}
+
+function renderSamples(notes) {
+  const total = Math.max(...notes.map((n) => n.at + n.duration)) + 0.05;
+  const samples = new Float32Array(Math.ceil(total * SAMPLE_RATE));
+  for (const note of notes) {
+    const start = Math.floor(note.at * SAMPLE_RATE);
+    const count = Math.floor(note.duration * SAMPLE_RATE);
+    for (let i = 0; i < count && start + i < samples.length; i++) {
+      const t = i / SAMPLE_RATE;
+      // Matches WebAudio's exponentialRamp from gain down to ~0.0001.
+      const envelope = note.gain * Math.exp((-9.2 * t) / note.duration);
+      samples[start + i] += waveform(note.type, note.freq * t) * envelope;
     }
   }
-  if (ctx.state === "suspended") ctx.resume();
-  return ctx;
+  return samples;
 }
 
-function output(ac) {
-  return mediaReady && mediaDest ? mediaDest : ac.destination;
+function encodeWav(samples) {
+  const buffer = new ArrayBuffer(44 + samples.length * 2);
+  const view = new DataView(buffer);
+  const writeString = (offset, text) => {
+    for (let i = 0; i < text.length; i++) view.setUint8(offset + i, text.charCodeAt(i));
+  };
+  writeString(0, "RIFF");
+  view.setUint32(4, 36 + samples.length * 2, true);
+  writeString(8, "WAVE");
+  writeString(12, "fmt ");
+  view.setUint32(16, 16, true); // PCM chunk size
+  view.setUint16(20, 1, true); // PCM format
+  view.setUint16(22, 1, true); // mono
+  view.setUint32(24, SAMPLE_RATE, true);
+  view.setUint32(28, SAMPLE_RATE * 2, true); // byte rate
+  view.setUint16(32, 2, true); // block align
+  view.setUint16(34, 16, true); // bits per sample
+  writeString(36, "data");
+  view.setUint32(40, samples.length * 2, true);
+  for (let i = 0; i < samples.length; i++) {
+    const s = Math.max(-1, Math.min(1, samples[i]));
+    view.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+  }
+  return new Blob([buffer], { type: "audio/wav" });
 }
 
-/** One decaying tone. */
-function tone(ac, { freq, type = "sine", at = 0, duration = 0.08, gain = 0.12 }) {
-  const osc = ac.createOscillator();
-  const amp = ac.createGain();
-  const t0 = ac.currentTime + at;
-  osc.type = type;
-  osc.frequency.setValueAtTime(freq, t0);
-  amp.gain.setValueAtTime(gain, t0);
-  amp.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
-  osc.connect(amp).connect(output(ac));
-  osc.start(t0);
-  osc.stop(t0 + duration + 0.02);
+// --- Playback ---
+
+/** @type {Record<string, HTMLAudioElement>} */
+const players = {};
+let unlocked = false;
+
+function buildPlayers() {
+  if (Object.keys(players).length) return;
+  try {
+    for (const [name, notes] of Object.entries(RECIPES)) {
+      const el = new Audio(URL.createObjectURL(encodeWav(renderSamples(notes))));
+      el.preload = "auto";
+      el.setAttribute("playsinline", "");
+      players[name] = el;
+    }
+  } catch {
+    // Audio unavailable: the game simply stays silent.
+  }
 }
 
-const EFFECTS = {
-  // Dry wooden tap for a quiet move.
-  move: (ac) => tone(ac, { freq: 520, type: "triangle", duration: 0.07, gain: 0.35 }),
-  // Lower, slightly longer thud for a capture.
-  capture: (ac) => {
-    tone(ac, { freq: 300, type: "triangle", duration: 0.1, gain: 0.45 });
-    tone(ac, { freq: 180, type: "sine", at: 0.01, duration: 0.14, gain: 0.3 });
-  },
-  // Rising two-note alert for check.
-  check: (ac) => {
-    tone(ac, { freq: 660, duration: 0.09, gain: 0.3 });
-    tone(ac, { freq: 880, at: 0.1, duration: 0.14, gain: 0.3 });
-  },
-  // Small closing chord for checkmate/draw/resignation.
-  end: (ac) => {
-    tone(ac, { freq: 523, at: 0, duration: 0.3, gain: 0.25 }); // C5
-    tone(ac, { freq: 659, at: 0.02, duration: 0.3, gain: 0.2 }); // E5
-    tone(ac, { freq: 784, at: 0.04, duration: 0.35, gain: 0.2 }); // G5
-  },
-  // Distinct ding for events that need attention (opponent joined, chat…).
-  notify: (ac) => {
-    tone(ac, { freq: 987, duration: 0.12, gain: 0.25 }); // B5
-    tone(ac, { freq: 1318, at: 0.09, duration: 0.2, gain: 0.25 }); // E6
-  },
-};
+buildPlayers();
 
 export const sound = {
   isEnabled() {
     return enabled;
-  },
-
-  /**
-   * Prime the audio pipeline from inside a user gesture. iOS/Safari keeps
-   * WebAudio muted until a (near-)silent buffer is played during a real tap;
-   * without this, sounds triggered by network events (opponent moves, chat)
-   * would stay silent until the user happens to tap something that plays.
-   */
-  unlock() {
-    try {
-      if (mediaReady && ctx && ctx.state === "running") return; // already primed
-      const ac = context();
-      if (!ac) return;
-      const buffer = ac.createBuffer(1, 1, 22050);
-      const source = ac.createBufferSource();
-      source.buffer = buffer;
-      source.connect(ac.destination);
-      source.start(0);
-      // Start the media element inside the gesture; once playing, all tones
-      // flow through it and survive the iOS silent switch.
-      if (mediaEl) {
-        const playing = mediaEl.play();
-        if (playing && playing.then) {
-          playing.then(
-            () => {
-              mediaReady = true;
-            },
-            () => {
-              mediaReady = false;
-            }
-          );
-        }
-      }
-    } catch {
-      // best effort
-    }
   },
 
   setEnabled(value) {
@@ -135,12 +124,42 @@ export const sound = {
     }
   },
 
+  /**
+   * Unlock every player inside a real user gesture (iOS requires each media
+   * element to have started once during a gesture before it may be played
+   * programmatically). Safe to call repeatedly; no-op once done.
+   */
+  unlock() {
+    if (unlocked) return;
+    unlocked = true; // optimistic; a rejected play flips it back for a retry
+    for (const el of Object.values(players)) {
+      try {
+        const attempt = el.play();
+        if (attempt && attempt.then) {
+          attempt
+            .then(() => {
+              el.pause();
+              el.currentTime = 0;
+            })
+            .catch(() => {
+              unlocked = false;
+            });
+        }
+      } catch {
+        unlocked = false;
+      }
+    }
+  },
+
   /** @param {"move"|"capture"|"check"|"end"|"notify"} name */
   play(name) {
-    if (!enabled || !EFFECTS[name]) return;
+    if (!enabled) return;
+    const el = players[name];
+    if (!el) return;
     try {
-      const ac = context();
-      if (ac) EFFECTS[name](ac);
+      el.currentTime = 0;
+      const attempt = el.play();
+      if (attempt && attempt.catch) attempt.catch(() => {});
     } catch {
       // Audio is a nicety: never let it break the game.
     }
