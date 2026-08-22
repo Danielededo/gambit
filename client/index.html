@@ -27,6 +27,7 @@
         <select id="mode-select">
           <option value="ai" selected>Human vs AI</option>
           <option value="human">Human vs Human</option>
+          <option value="online">Online (PIN)</option>
         </select>
       </label>
       <label class="control-field" id="difficulty-field">
@@ -51,6 +52,15 @@
     </section>
 
     <aside class="sidebar" aria-label="Game information">
+      <div id="online-panel" class="online-panel" hidden>
+        <button id="create-game" class="btn" type="button">Create game</button>
+        <div class="join-row">
+          <input id="join-pin" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="6-digit PIN" aria-label="Game PIN" />
+          <button id="join-game" class="btn" type="button">Join</button>
+        </div>
+        <p class="online-hint">Create a game and share the PIN, or enter a friend's PIN to join.</p>
+      </div>
+      <div id="pin-banner" class="pin-banner" hidden>PIN <strong id="pin-value"></strong></div>
       <div id="game-status" class="game-status" role="status">White to move</div>
       <h2 class="sidebar-heading">Moves</h2>
       <ol id="move-history" class="move-history"></ol>

@@ -17,8 +17,17 @@ export class Board {
     this.onMove = onMove;
     this.selectedSquare = null;
     this.locked = false; // true while the AI is thinking
+    this.orientation = "w"; // which color sits at the bottom
     this.promotionDialog = null;
     this.container.addEventListener("click", (event) => this.handleClick(event));
+  }
+
+  /** Swap the game this board renders (e.g. local game <-> online game). */
+  setGame(game, orientation = "w") {
+    this.game = game;
+    this.orientation = orientation;
+    this.selectedSquare = null;
+    this.render();
   }
 
   /** Re-render the whole board from the current game state. */
@@ -32,9 +41,13 @@ export class Board {
       : [];
 
     // chess.js returns ranks 8 -> 1, which matches top -> bottom rendering
-    // with White at the bottom.
-    board.forEach((rank, rankIndex) => {
-      rank.forEach((piece, fileIndex) => {
+    // with White at the bottom; for Black's point of view both axes flip.
+    const rows = board.map((rank, rankIndex) => ({ rank, rankIndex }));
+    if (this.orientation === "b") rows.reverse();
+    rows.forEach(({ rank, rankIndex }) => {
+      const cells = rank.map((piece, fileIndex) => ({ piece, fileIndex }));
+      if (this.orientation === "b") cells.reverse();
+      cells.forEach(({ piece, fileIndex }) => {
         const square = FILES[fileIndex] + (8 - rankIndex);
         const el = document.createElement("div");
         const isLight = (rankIndex + fileIndex) % 2 === 0;
@@ -90,9 +103,11 @@ export class Board {
       }
     }
 
-    // Select (or re-select) a piece of the side to move.
+    // Select (or re-select) a selectable piece: in local games any piece of
+    // the side to move, online only the player's own pieces.
     const piece = this.pieceAt(square);
-    this.selectedSquare = piece && piece.color === this.game.turn() ? square : null;
+    const selectable = this.game.selectableColor || this.game.turn();
+    this.selectedSquare = piece && piece.color === selectable ? square : null;
     this.render();
   }
 
@@ -140,12 +155,14 @@ export class Board {
         dialog.appendChild(button);
       });
 
-      // Position the dialog over the destination square's file.
+      // Position the dialog over the destination square's file; the
+      // promotion rank displays at the top when it's the mover's own side.
       const squareEl = this.container.querySelector(`[data-square="${square}"]`);
       if (squareEl) {
+        const atTop = color === this.orientation;
         dialog.style.left = `${squareEl.offsetLeft}px`;
-        dialog.style.top = color === "w" ? "0" : "auto";
-        if (color === "b") dialog.style.bottom = "0";
+        dialog.style.top = atTop ? "0" : "auto";
+        if (!atTop) dialog.style.bottom = "0";
       }
 
       const record = { element: dialog, resolve, onOutside: null };

@@ -1,0 +1,24 @@
+# Render blueprint. In the Render dashboard: New + → Blueprint → pick this repo.
+# Render injects PORT and terminates TLS at its proxy, so the client uses wss://
+# automatically. The free plan sleeps after ~15 min without inbound traffic;
+# the first request afterwards is slow and in-memory games are lost.
+services:
+  - type: web
+    name: gambit
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      # Behind Render's proxy: read the real client IP from X-Forwarded-For so
+      # the per-IP limits don't treat every player as the same client.
+      - key: TRUST_PROXY
+        value: "1"
+      - key: NODE_VERSION
+        value: "20"
+      # Optional overrides (defaults live in the server); uncomment to change:
+      # - key: MAX_ACTIVE_GAMES
+      #   value: "20"
+      # - key: ALLOWED_ORIGINS
+      #   value: "https://your-app.onrender.com"
