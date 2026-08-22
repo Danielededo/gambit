@@ -13,7 +13,7 @@ const MODE_STORAGE_KEY = "gambit-mode";
 const DIFFICULTY_STORAGE_KEY = "gambit-difficulty";
 const AI_COLOR = "b"; // the human plays White in Human vs AI mode
 // Shown in the footer; bump on release so a stale cached client is obvious.
-const APP_VERSION = "0.5.0";
+const APP_VERSION = "0.5.1";
 
 const localGame = new Game();
 const ai = new AI();
@@ -289,6 +289,8 @@ function leaveOnline() {
   onlineActions.hidden = true;
   offerBanner.hidden = true;
   chatPanel.hidden = true;
+  modeSelect.disabled = false;
+  modeSelect.title = "";
   clearChat();
 }
 
@@ -300,6 +302,11 @@ function updateOnlineUi() {
   pinBanner.hidden = !waiting;
   if (waiting) pinValue.textContent = state.pin;
   resetButton.textContent = seated ? "Leave game" : "New game";
+
+  // While seated in an online game, switching mode would silently abandon it:
+  // require the explicit "Leave game" action instead.
+  modeSelect.disabled = seated;
+  modeSelect.title = seated ? "Leave the game first to change mode" : "";
 
   // Chat is available as soon as there is an opponent (and stays open after
   // the game ends, for the customary "gg").

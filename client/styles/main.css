@@ -398,10 +398,17 @@ body {
   flex: 1;
   min-width: 0;
   padding: 0.4rem 0.6rem;
+  /* At least 16px, or iOS Safari zooms the page when the field is focused. */
+  font-size: 1rem;
   border: 1px solid var(--border-color);
   border-radius: 6px;
   background: var(--bg-color);
   color: var(--text-color);
+}
+
+.control-field select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 /* Sidebar */
