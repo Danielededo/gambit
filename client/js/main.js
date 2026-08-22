@@ -13,7 +13,7 @@ const MODE_STORAGE_KEY = "gambit-mode";
 const DIFFICULTY_STORAGE_KEY = "gambit-difficulty";
 const AI_COLOR = "b"; // the human plays White in Human vs AI mode
 // Shown in the footer; bump on release so a stale cached client is obvious.
-const APP_VERSION = "0.6.1";
+const APP_VERSION = "0.7.0";
 
 const localGame = new Game();
 const ai = new AI();
@@ -199,6 +199,9 @@ function startOnline() {
   onlineGame = null;
   soundedMoves = 0;
   let prevStatus = null;
+  let prevDrawOffer = null;
+  let prevRematchOffer = null;
+  let prevOpponentLeft = false;
   session = new OnlineSession({
     onState: (state) => {
       const firstState = !onlineGame.state;
@@ -251,6 +254,36 @@ function startOnline() {
         sound.play("end");
         announce(onlineGame.status(), "end", 3500);
       }
+
+      // Incoming offers and a permanently departing opponent deserve a ping.
+      if (!firstState) {
+        const myColor = state.yourColor;
+        if (state.drawOffer && state.drawOffer !== myColor && prevDrawOffer !== state.drawOffer) {
+          sound.play("notify");
+          announce("Opponent offers a draw", "start", 2200);
+        }
+        if (
+          state.rematchOffer &&
+          state.rematchOffer !== myColor &&
+          prevRematchOffer !== state.rematchOffer
+        ) {
+          sound.play("notify");
+          announce("Opponent wants a rematch", "start", 2200);
+        }
+        if (
+          state.opponentLeft &&
+          !prevOpponentLeft &&
+          state.status === "finished" &&
+          prevStatus === "finished"
+        ) {
+          // Mid-game departures already announce the resignation result.
+          sound.play("notify");
+          announce("Opponent left the game", "end", 2500);
+        }
+      }
+      prevDrawOffer = state.drawOffer;
+      prevRematchOffer = state.rematchOffer;
+      prevOpponentLeft = Boolean(state.opponentLeft);
       prevStatus = state.status;
     },
     onChat: (from, text) => {
@@ -318,9 +351,9 @@ function startOnline() {
 
 function leaveOnline() {
   if (session) {
-    if (onlineGame && onlineGame.state && onlineGame.state.status === "active") {
-      onlineGame.resign();
-    }
+    // Tell the server this is a permanent exit (resigns a running game and
+    // vacates the seat, so the opponent knows rematch is off the table).
+    if (onlineGame && onlineGame.state) session.send({ type: "leave" });
     session.close();
     // Only drop the reconnect token when we actually left a game. With no
     // session (e.g. the initial local-mode setup before the server probe),
@@ -363,9 +396,15 @@ function updateOnlineUi() {
   drawButton.disabled = seated && state.drawOffer === myColor;
   drawButton.textContent = seated && state.drawOffer === myColor ? "Draw offered…" : "Offer draw";
   rematchButton.hidden = !seated || state.status !== "finished";
-  rematchButton.disabled = seated && state.rematchOffer === myColor;
-  rematchButton.textContent =
-    seated && state.rematchOffer === myColor ? "Rematch offered…" : "Rematch";
+  if (!rematchButton.hidden && state.opponentLeft) {
+    // No one is on the other side anymore: offering would be futile.
+    rematchButton.disabled = true;
+    rematchButton.textContent = "Opponent left";
+  } else {
+    rematchButton.disabled = seated && state.rematchOffer === myColor;
+    rematchButton.textContent =
+      seated && state.rematchOffer === myColor ? "Rematch offered…" : "Rematch";
+  }
   onlineActions.hidden = drawButton.hidden && rematchButton.hidden;
 
   // Banner for the opponent's pending offer.

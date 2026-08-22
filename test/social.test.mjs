@@ -113,6 +113,52 @@ try {
   check("resume after rematch keeps swapped color", resumed.yourColor === "b");
   A2.close();
   B.close();
+
+  // --- leave semantics: permanent exit, distinct from a disconnect ---
+  const L1 = await connect(PORT);
+  L1.sendJson({ type: "create" });
+  const g1 = await nextOfType(L1, "created");
+  await nextOfType(L1, "state");
+  const L2 = await connect(PORT);
+  L2.sendJson({ type: "join", pin: g1.pin });
+  const j2 = await nextOfType(L2, "joined");
+  await nextOfType(L2, "state");
+  await nextOfType(L1, "state");
+
+  L2.sendJson({ type: "leave" }); // leaves mid-game
+  const afterLeave = await nextOfType(L1, "state");
+  check(
+    "leaving mid-game resigns",
+    afterLeave.status === "finished" &&
+      afterLeave.result.reason === "resignation" &&
+      afterLeave.result.winner === "w"
+  );
+  check("opponentLeft flagged for the stayer", afterLeave.opponentLeft === true);
+
+  L1.sendJson({ type: "rematch_offer" });
+  const futile = await nextOfType(L1, "error");
+  check("rematch to a departed opponent refused", futile.code === "opponent_left");
+
+  const comeback = await connect(PORT);
+  comeback.sendJson({ type: "resume", token: j2.token });
+  const dead = await nextOfType(comeback, "error");
+  check("leaver's token is invalidated", dead.code === "not_found");
+  comeback.close();
+  L1.close();
+  L2.close();
+
+  // Leaving a waiting game frees the PIN immediately.
+  const L3 = await connect(PORT);
+  L3.sendJson({ type: "create" });
+  const g3 = await nextOfType(L3, "created");
+  await nextOfType(L3, "state");
+  L3.sendJson({ type: "leave" });
+  const probe = await connect(PORT);
+  probe.sendJson({ type: "join", pin: g3.pin });
+  const gone = await nextOfType(probe, "error");
+  check("waiting game removed when creator leaves", gone.code === "not_found");
+  probe.close();
+  L3.close();
 } finally {
   await stopServer(server);
 }
