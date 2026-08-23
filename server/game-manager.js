@@ -217,6 +217,10 @@ export class Game {
    */
   leave(color) {
     if (this.status === "active") this.resign(color);
+    // Withdraw the leaver's pending offers so the opponent isn't left with a
+    // banner that can never be accepted.
+    if (this.drawOffer === color) this.drawOffer = null;
+    if (this.rematchOffer === color) this.rematchOffer = null;
     const player = this.players[color];
     if (player) {
       player.departed = true;
@@ -313,6 +317,7 @@ export class Game {
     if (this.status === "waiting" || !this.players.b) {
       throw new GameError("chat_no_opponent", "There is nobody to chat with yet");
     }
+    this.requireOpponentPresent(color); // nobody to deliver to if they left
     const text = String(rawText ?? "").trim();
     if (!text) throw new GameError("chat_empty", "Empty message");
     if (text.length > CHAT_MAX_LENGTH) {
@@ -329,17 +334,12 @@ export class Game {
     return text;
   }
 
-  abandon(color) {
-    if (this.status === "finished") return;
-    this.status = "finished";
-    this.result = { winner: color === "w" ? "b" : "w", reason: "abandonment" };
-    this.touch();
-  }
-
   /** Full authoritative state, personalized with the receiver's color. */
   stateFor(color) {
-    const history = this.chess.history({ verbose: true });
-    const last = history[history.length - 1];
+    // One verbose history() is enough for both the SAN list and the last move;
+    // history() replays the whole game per call, so avoid calling it twice.
+    const verbose = this.chess.history({ verbose: true });
+    const last = verbose.length ? verbose[verbose.length - 1] : null;
     return {
       type: "state",
       yourColor: color,
@@ -349,7 +349,7 @@ export class Game {
       fen: this.chess.fen(),
       turn: this.chess.turn(),
       inCheck: this.chess.inCheck(),
-      history: this.chess.history(),
+      history: verbose.map((move) => move.san),
       lastMove: last ? { from: last.from, to: last.to } : null,
       drawOffer: this.drawOffer,
       rematchOffer: this.rematchOffer,

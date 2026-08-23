@@ -24,6 +24,9 @@ export class AI {
     this.worker = null;
     this.readyPromise = null;
     this.level = 3;
+    // Reject callback of the in-flight bestMove(), so an engine crash mid-
+    // search doesn't leave the promise (and the board) hung forever.
+    this.pendingReject = null;
   }
 
   /** Lazily start the engine so Human vs Human games never pay its cost. */
@@ -38,8 +41,25 @@ export class AI {
         }
       };
       this.worker.addEventListener("message", onMessage);
-      this.worker.addEventListener("error", (e) => reject(new Error(`Engine failed to load: ${e.message}`)), { once: true });
       this.worker.postMessage("uci");
+    });
+    // A worker error can happen any time (e.g. the WASM worker is killed under
+    // memory pressure), not just during init: fail both the ready and any
+    // in-flight search so callers unlock instead of awaiting forever.
+    this.worker.addEventListener("error", (e) => {
+      const error = new Error(`Chess engine error: ${e.message || "worker crashed"}`);
+      if (this.pendingReject) {
+        this.pendingReject(error);
+        this.pendingReject = null;
+      }
+      // Force a fresh engine on the next request.
+      try {
+        this.worker.terminate();
+      } catch {
+        // ignore
+      }
+      this.worker = null;
+      this.readyPromise = null;
     });
     return this.readyPromise;
   }
@@ -55,15 +75,28 @@ export class AI {
    */
   async bestMove(fen) {
     await this.init();
+    const worker = this.worker;
     const { skill, depth, movetime } = DIFFICULTY_LEVELS[this.level];
-    this.worker.postMessage(`setoption name Skill Level value ${skill}`);
-    this.worker.postMessage(`position fen ${fen}`);
 
     return new Promise((resolve, reject) => {
+      // Stop any prior search, then use isready/readyok as a fence: the engine
+      // flushes a stopped search's bestmove before answering readyok, so we
+      // only start (and listen for) our own search afterwards — no stale move
+      // from a previous, aborted search can resolve this one.
+      let started = false;
       const onMessage = (event) => {
         const line = String(event.data);
+        if (!started) {
+          if (line === "readyok") {
+            started = true;
+            worker.postMessage(`setoption name Skill Level value ${skill}`);
+            worker.postMessage(`position fen ${fen}`);
+            worker.postMessage(`go depth ${depth} movetime ${movetime}`);
+          }
+          return; // ignore any bestmove arriving before our readyok
+        }
         if (!line.startsWith("bestmove")) return;
-        this.worker.removeEventListener("message", onMessage);
+        cleanup();
         const uci = line.split(/\s+/)[1];
         if (!uci || uci === "(none)") {
           reject(new Error("Engine returned no move"));
@@ -75,8 +108,17 @@ export class AI {
           promotion: uci.length > 4 ? uci[4] : undefined,
         });
       };
-      this.worker.addEventListener("message", onMessage);
-      this.worker.postMessage(`go depth ${depth} movetime ${movetime}`);
+      const cleanup = () => {
+        worker.removeEventListener("message", onMessage);
+        if (this.pendingReject === reject) this.pendingReject = null;
+      };
+      this.pendingReject = (error) => {
+        cleanup();
+        reject(error);
+      };
+      worker.addEventListener("message", onMessage);
+      worker.postMessage("stop");
+      worker.postMessage("isready");
     });
   }
 

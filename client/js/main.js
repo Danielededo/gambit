@@ -13,7 +13,7 @@ const MODE_STORAGE_KEY = "gambit-mode";
 const DIFFICULTY_STORAGE_KEY = "gambit-difficulty";
 const AI_COLOR = "b"; // the human plays White in Human vs AI mode
 // Shown in the footer; bump on release so a stale cached client is obvious.
-const APP_VERSION = "0.7.0";
+const APP_VERSION = "0.7.1";
 
 const localGame = new Game();
 const ai = new AI();
@@ -204,6 +204,7 @@ function startOnline() {
   let prevOpponentLeft = false;
   session = new OnlineSession({
     onState: (state) => {
+      if (!onlineGame) return; // a queued frame after leaveOnline()
       const firstState = !onlineGame.state;
       onlineGame.applyState(state);
       // Orientation can change mid-session: a rematch swaps colors.
@@ -292,12 +293,13 @@ function startOnline() {
       bumpUnread();
     },
     onError: (code, message) => {
+      if (!onlineGame) return; // a queued frame after leaveOnline()
       if (code.startsWith("chat_")) {
         appendChat("system", message);
         return;
       }
-      if (code === "no_offer") {
-        return; // stale accept/decline (offer was withdrawn); state will follow
+      if (code === "no_offer" || code === "opponent_left") {
+        return; // stale action; the authoritative state broadcast will follow
       }
       if (!onlineGame.state || code === "not_found") {
         // Wrong PIN, full game, expired token: back to the create/join panel.
@@ -351,14 +353,16 @@ function startOnline() {
 
 function leaveOnline() {
   if (session) {
-    // Tell the server this is a permanent exit (resigns a running game and
-    // vacates the seat, so the opponent knows rematch is off the table).
-    if (onlineGame && onlineGame.state) session.send({ type: "leave" });
+    const seated = Boolean(onlineGame && onlineGame.state);
+    if (seated) {
+      // Permanent exit: resign a running game and vacate the seat so the
+      // opponent knows rematch is off the table, then forget the token.
+      session.send({ type: "leave" });
+      OnlineSession.saveToken(null);
+    }
+    // If we were never seated (e.g. reload during a slow server probe), keep
+    // the saved token so the still-running game can be resumed later.
     session.close();
-    // Only drop the reconnect token when we actually left a game. With no
-    // session (e.g. the initial local-mode setup before the server probe),
-    // clearing it would wipe a still-valid token and break auto-resume.
-    OnlineSession.saveToken(null);
   }
   session = null;
   onlineGame = null;

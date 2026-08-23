@@ -30,7 +30,14 @@ const MAX_MESSAGE_BYTES = 4 * 1024;
 function clientIp(req) {
   if (TRUST_PROXY) {
     const xff = req.headers["x-forwarded-for"];
-    if (xff) return String(xff).split(",")[0].trim();
+    if (xff) {
+      // The trusted proxy appends the real client IP as the LAST entry.
+      // Taking the first (client-supplied) entry would let a client spoof
+      // its IP and bypass every per-IP limit.
+      const parts = String(xff).split(",");
+      const last = parts[parts.length - 1].trim();
+      if (last) return last;
+    }
   }
   return req.socket.remoteAddress || "unknown";
 }
@@ -83,7 +90,15 @@ const httpServer = createServer(async (req, res) => {
     return;
   }
 
-  const urlPath = decodeURIComponent(new URL(req.url, "http://localhost").pathname);
+  let urlPath;
+  try {
+    urlPath = decodeURIComponent(new URL(req.url, "http://localhost").pathname);
+  } catch {
+    // Malformed percent-encoding (e.g. /%zz) — reject instead of throwing,
+    // which would otherwise crash the process via an unhandled rejection.
+    res.writeHead(400, { "Content-Type": "text/plain" }).end("Bad request");
+    return;
+  }
   const relative = urlPath === "/" ? "index.html" : urlPath.slice(1);
   const filePath = resolve(join(CLIENT_DIR, relative));
   if (filePath !== CLIENT_DIR && !filePath.startsWith(CLIENT_DIR + sep)) {
