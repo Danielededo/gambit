@@ -9,14 +9,14 @@ Open http://localhost:8080 — that's the full app (local + online play). For fr
 
 ## Layout & conventions
 
-- `client/` — static frontend, vanilla JavaScript (ES modules), no build step: rules in `js/game.js`, rendering in `js/board.js`, engine in `js/ai.js`, online play in `js/online.js`, themes/pieces in `js/theme.js` / `js/pieces.js`.
+- `client/` — static frontend, vanilla JavaScript (ES modules), no build step: rules in `js/game.js`, rendering in `js/board.js`, engine in `js/ai.js`, online play in `js/online.js`, sounds in `js/sound.js`, themes/pieces in `js/theme.js` / `js/pieces.js`, wiring in `js/main.js`.
 - `server/` — Node.js game server (`server.js` transport + static files, `game-manager.js` game state). It is the authority on the rules: never trust the client.
 - Everything in English; format with Prettier defaults (`npx prettier --write client/js server`).
 - Vendored code goes to `client/js/vendor/` together with its license file.
 
 ## Testing
 
-Server: `npm test` runs the WebSocket protocol and security-hardening suites (`test/`) — each spins up its own server instance, no setup needed.
+Server: `npm test` runs the protocol, security, social, and sound suites (`test/`) — each spins up its own server instance where needed, no setup required. CI runs the same on every push and PR.
 
 Manual: a game vs the AI finishes without console errors; castling, en passant, and the promotion picker work; check/checkmate/stalemate show in the status bar; every theme and piece set renders (switch mid-game); preferences survive a reload; the layout holds at ~375px width. For online play: create/join with a PIN in two browser tabs, play moves both ways (Black sees a flipped board), reload one tab mid-game and confirm it resumes, leave and confirm the opponent is notified.
 

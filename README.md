@@ -1,24 +1,34 @@
+<div align="center">
+
 # Gambit ♞
 
-Chess in the browser: play against Stockfish, a friend on the same device, or **online with a 6-digit PIN** — no accounts, no tracking.
+**Play chess in your browser — against Stockfish, a friend on the same device, or online with just a 6-digit PIN.**
+No accounts, no tracking, no build step. Vanilla JavaScript front to back.
 
-**▶ Play online (all modes): https://gambit-gky7.onrender.com** &nbsp;·&nbsp; single-player is also on [GitHub Pages](https://danielededo.github.io/gambit/)
+[![CI](https://github.com/Danielededo/gambit/actions/workflows/ci.yml/badge.svg)](https://github.com/Danielededo/gambit/actions/workflows/ci.yml)
+[![Live](https://img.shields.io/website?url=https%3A%2F%2Fgambit-gky7.onrender.com&label=play%20online&up_message=live&down_message=asleep)](https://gambit-gky7.onrender.com)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Node](https://img.shields.io/badge/node-%E2%89%A520-5FA04E?logo=node.js&logoColor=white)](package.json)
+[![Dependencies](https://img.shields.io/badge/runtime%20deps-1%20(ws)-brightgreen.svg)](package.json)
+[![No build step](https://img.shields.io/badge/build-none-brightgreen.svg)](#run-locally)
 
-[![Live site](https://img.shields.io/website?url=https%3A%2F%2Fgambit-gky7.onrender.com&label=render&up_message=live&down_message=asleep)](https://gambit-gky7.onrender.com)
-
-> The online host is on a free plan that sleeps after ~15 min idle — the first visit then takes ~30s to wake.
+### [▶ Play online](https://gambit-gky7.onrender.com) &nbsp;·&nbsp; [Single-player on GitHub Pages](https://danielededo.github.io/gambit/)
 
 ![Gambit — mid-game against the AI](client/assets/screenshots/gameplay.png)
 
+</div>
+
+Gambit is a complete, dependency-light chess app: a **vanilla-JS client** (no framework, no bundler) and a **~350-line Node WebSocket server** that is the sole authority on the rules. The AI runs entirely in the visitor's browser via WebAssembly, so the server only ever brokers online games — and the same client ships as two releases: a static single-player build on GitHub Pages and the full online app on any Node host.
+
 ## Features
 
-- **Three modes** — Human vs AI, Human vs Human (same device), Online via PIN
-- **Difficulty 1-8** — Stockfish 18 running locally in your browser, from beginner to full strength
-- **Full rules** — castling, en passant, promotion (with piece picker), check/checkmate/stalemate/draws, powered by [chess.js](https://github.com/jhlywa/chess.js)
-- **Fair online play** — the server validates every move; reconnect and resume after a page reload
-- **Play together** — in-game chat (with sound and tab-title notification), draw offers, and one-click rematch with colors swapped
-- **Helpful board** — legal-move highlighting, last-move marker, move history in algebraic notation, move sounds (with a mute toggle)
-- **Your look** — 4 themes × 4 piece sets, remembered across visits
+- **Three ways to play** — Human vs AI, Human vs Human on one device, or Online via a shared 6-digit PIN (with a one-tap invite link).
+- **Real chess** — castling, en passant, promotion (with a piece picker), check / checkmate / stalemate / all draw types, via [chess.js](https://github.com/jhlywa/chess.js).
+- **Stockfish 18**, 8 difficulty levels, running locally in WebAssembly — the AI costs the server nothing.
+- **Fair, server-authoritative online play** — every move is re-validated on the server; reconnect and resume after a reload or dropped connection.
+- **Play together** — in-game chat (sound + tab-title unread badge), draw offers, and one-click rematch with colors swapped.
+- **Polished board** — legal-move dots, last-move and in-check highlighting, center-board toasts for check / mate / game events, captured-pieces tray with material score, synthesized move sounds (mutable).
+- **Make it yours** — 4 themes × 4 piece sets, remembered across visits.
 
 | Light · Standard | Dark · Medieval | Blue · Minimal | Sepia · Unicode |
 |:---:|:---:|:---:|:---:|
@@ -26,64 +36,98 @@ Chess in the browser: play against Stockfish, a friend on the same device, or **
 
 ## How to play
 
-Click a piece, then one of its highlighted destinations. Pick mode, difficulty, theme, and pieces from the header — **New game** restarts anytime.
+Click a piece, then one of its highlighted destinations. Pick mode, difficulty, theme, and pieces from the header; **New game** restarts anytime.
 
-**Online:** choose *Online (PIN)*, press *Create game*, and share the 6-digit PIN; your friend joins with it and plays Black (board flipped on their side). Closing the tab by accident? Reload and the game resumes. The server hosts a limited number of parallel games.
+**Online:** choose *Online (PIN)* → *Create game*, then share the PIN or tap the invite link. Your friend joins and plays Black (their board flips automatically). Accidentally closed the tab? Reload and the game resumes.
 
 ![Online game — waiting for the opponent with the PIN on screen](client/assets/screenshots/online-pin.png)
+
+## Architecture
+
+```mermaid
+flowchart LR
+    subgraph Browser["Player's browser"]
+        UI["Vanilla-JS client<br/>board · themes · pieces"]
+        SF["Stockfish 18<br/>(WebAssembly worker)"]
+        CJS["chess.js<br/>(local rendering + hints)"]
+        UI --- SF
+        UI --- CJS
+    end
+
+    subgraph Host["Node host (online only)"]
+        WS["WebSocket server<br/>matchmaking · relay"]
+        GM["Game manager<br/>authoritative chess.js"]
+        WS --- GM
+    end
+
+    UI -->|"static files (HTTP)"| Host
+    UI <-->|"moves / chat / offers (WSS)"| WS
+```
+
+- **`client/`** — static frontend, plain ES modules, no build step. Local modes (AI, hot-seat) work fully offline in the browser; Stockfish and chess.js are vendored.
+- **`server/`** — Node.js (≥20, ESM), one runtime dependency (`ws`). Serves the client and hosts online games, re-validating **every** move with chess.js — the client is never trusted. Games are in memory; `MAX_ACTIVE_GAMES` caps parallel games and per-IP limits curb abuse.
+
+The client probes `/healthz` on load and hides Online mode when no server is present, so a static-only deploy (GitHub Pages) degrades gracefully to single-player.
 
 ## Run locally
 
 ```bash
-npm install && npm start   # full app (local + online play) on http://localhost:8080
+npm install && npm start   # full app (local + online) at http://localhost:8080
+npm test                   # protocol, security, social & sound suites
 ```
 
-Static-only alternative (local modes, no online): `python -m http.server -d client` — an HTTP server is required either way, ES modules and the Stockfish worker don't run from `file://`.
+Front-end only (no online): `python -m http.server -d client`. An HTTP origin is required either way — ES modules and the Stockfish worker don't run from `file://`.
 
-## Architecture & deployment
+## Deployment
 
-- `client/` — static frontend (vanilla JS, no build step). Runs anywhere; Stockfish plays in the visitor's browser.
-- `server/` — Node.js WebSocket server for online games: it serves `client/` and is the authority on the rules (every move re-validated server-side). In-memory for now, `MAX_ACTIVE_GAMES` caps parallel games (default 20).
+The client is deployed to **GitHub Pages** (static, single-player) by [`deploy.yml`](.github/workflows/deploy.yml). The full app runs on any Node host; a one-click **Render** blueprint is included:
 
-Full deployment needs a Node host (`npm start`, honors `PORT`). The GitHub Pages workflow ([`deploy.yml`](.github/workflows/deploy.yml)) publishes the static client only — local modes work there, online play does not. The client detects this at runtime (a `/healthz` probe) and **hides the Online option when no server is present**, so the same codebase ships as two releases: a static single-player build (Pages) and the full app (a Node host).
+1. In [Render](https://render.com) → **New + → Blueprint** → pick this repo. It reads [`render.yaml`](render.yaml): build `npm install`, start `npm start`, health-check `/healthz`, `TRUST_PROXY=1` preset.
+2. Served at `https://<name>.onrender.com` over `wss://` automatically.
 
-### Deploy the server on Render (free)
+> **Free-plan trade-off:** the service sleeps after ~15 min idle (first visit then wakes in ~30s) and in-memory games are lost on restart. Persistence is on the roadmap.
 
-The repo ships a [`render.yaml`](render.yaml) blueprint:
+Every push to `main` redeploys via [`deploy-render.yml`](.github/workflows/deploy-render.yml) — set the repo secret `RENDER_DEPLOY_HOOK` to the service's Deploy Hook URL. Behind any proxy, set `TRUST_PROXY=1` so per-IP limits use the real client IP.
 
-1. Push to GitHub, then in [Render](https://render.com) → **New + → Blueprint** → pick this repo.
-2. Render reads `render.yaml`, builds with `npm install`, starts with `npm start`, and health-checks `/healthz`. `TRUST_PROXY=1` is set for you.
-3. The app is served at `https://<name>.onrender.com` — local **and** online modes, over `wss://` automatically.
-
-**Cost:** the free web-service plan is free with no time limit, but it **sleeps after ~15 minutes without traffic** — the next visit takes ~30s to wake, and any in-memory online game is lost on wake. That's the trade-off for paying nothing; persistence (roadmap) removes the data-loss part, and a paid plan (or a keep-alive ping) removes the sleep. Any other Node host works too — just set `TRUST_PROXY=1`.
-
-**Automatic redeploys:** make sure the service watches branch `main` with Auto-Deploy on (Settings → Build & Deploy). As a belt-and-braces fallback, [`deploy-render.yml`](.github/workflows/deploy-render.yml) calls the service's Deploy Hook on every push to `main`: copy the hook URL from Render (Settings → Deploy Hook) into a repo secret named `RENDER_DEPLOY_HOOK` and deploys will always trigger, whatever the Render-side integration state.
-
-### Server configuration
-
-All optional, set via environment variables:
+<details>
+<summary><b>Server configuration</b> (environment variables, all optional)</summary>
 
 | Variable | Default | Purpose |
 |---|---|---|
 | `PORT` | `8080` | HTTP/WebSocket port |
 | `MAX_ACTIVE_GAMES` | `20` | Global cap on concurrent online games |
-| `MAX_GAMES_PER_IP` | `3` | Live games one client (IP) may own — stops one person exhausting the global cap |
+| `MAX_GAMES_PER_IP` | `3` | Live games one client (IP) may own |
 | `MAX_CONNECTIONS_PER_IP` | `20` | Concurrent WebSocket connections per IP |
-| `JOIN_FAILURE_LIMIT` | `10` | Failed PIN joins per IP per minute before a short lockout (anti brute-force) |
+| `JOIN_FAILURE_LIMIT` | `10` | Failed PIN joins per IP per minute before a short lockout |
 | `ALLOWED_ORIGINS` | same-origin | Comma-separated origins allowed to open control sockets |
-| `HEARTBEAT_MS` | `30000` | WebSocket ping interval; keeps connections alive through proxies and detects dead sockets |
-| `TRUST_PROXY` | `0` | Set to `1` when behind a proxy/load balancer so the client IP is read from `X-Forwarded-For` |
+| `HEARTBEAT_MS` | `30000` | WebSocket ping interval (proxy keep-alive + dead-socket detection) |
+| `TRUST_PROXY` | `0` | Read the client IP from `X-Forwarded-For` (set to `1` behind a proxy) |
 
-See [`.env.example`](.env.example) for a copy-ready template. The server shuts down cleanly on `SIGTERM`/`SIGINT` (redeploys, Ctrl-C).
+See [`.env.example`](.env.example). The server shuts down cleanly on `SIGTERM`/`SIGINT`.
 
-> **Behind a proxy (Render, Fly, Railway, …): set `TRUST_PROXY=1`.** Otherwise every request appears to come from the proxy's IP and the per-IP limits apply to all players at once.
+</details>
+
+## Project structure
+
+```
+client/            static frontend (deployable on its own)
+  index.html
+  js/              game.js · board.js · ai.js · online.js · theme.js · pieces.js · sound.js · main.js
+  js/vendor/       chess.js, Stockfish (with licenses)
+  styles/          main.css + themes/
+  assets/          piece sprites, screenshots
+server/            server.js (transport + static) · game-manager.js (authoritative state)
+test/              protocol · security · social · sound suites (no framework)
+```
 
 ## Roadmap
 
-Persistence for online games (SQLite) · accounts & ELO · replay & PGN import · engine analysis · timers · animations & sounds · play as Black vs AI.
+Online-game persistence (SQLite/Turso) · accounts & ELO · move replay & PGN import · engine analysis · clocks / blitz · play as Black vs the AI.
 
-## Contributing & license
+## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) — adding a theme or a piece set is a one-file job.
+See [CONTRIBUTING.md](CONTRIBUTING.md) — adding a theme or a piece set is a one-file change, and `npm test` runs the full server suite locally.
 
-Project code is [MIT](LICENSE). Vendored components keep their own licenses: chess.js (BSD-2-Clause), [Stockfish.js](https://github.com/nmrugg/stockfish.js) (GPLv3), standard piece SVGs by [Cburnett et al.](https://commons.wikimedia.org/wiki/Category:SVG_chess_pieces/Standard) (CC BY-SA 3.0); medieval and minimal sets are original MIT artwork.
+## License & credits
+
+Project code is [MIT](LICENSE). Vendored components keep their own licenses: [chess.js](https://github.com/jhlywa/chess.js) (BSD-2-Clause), [Stockfish.js](https://github.com/nmrugg/stockfish.js) (GPLv3), and the standard piece set by [Cburnett et al.](https://commons.wikimedia.org/wiki/Category:SVG_chess_pieces/Standard) (CC BY-SA 3.0, via [cm-chessboard](https://github.com/shaack/cm-chessboard)). The medieval and minimal piece sets are original artwork for this project (MIT).
